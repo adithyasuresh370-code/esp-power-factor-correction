@@ -3,9 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ESP32 Smart Power Monitor — APFC Dashboard</title>
-  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%230ea5e9' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polygon points='13 2 3 14 12 14 11 22 21 10 12 10 13 2'/></svg>">
+  <title>ESP32 Smart Power Monitor — Neumorphic APFC Dashboard</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2314b8a6' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polygon points='13 2 3 14 12 14 11 22 21 10 12 10 13 2'/></svg>">
   
+  <!-- Google Fonts: Inter & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+
   <!-- Tailwind CSS via CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
@@ -13,12 +18,15 @@
       darkMode: 'class',
       theme: {
         extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace']
+          },
           colors: {
             brand: {
-              50: '#f0fdfa',
+              400: '#2dd4bf',
               500: '#14b8a6',
-              600: '#0d9488',
-              700: '#0f766e'
+              600: '#0d9488'
             }
           }
         }
@@ -32,474 +40,604 @@
   <script src="https://unpkg.com/mqtt@5.10.0/dist/mqtt.min.js"></script>
 
   <style>
-    /* Custom scrollbars */
-    ::-webkit-scrollbar { width: 6px; height: 6px; }
-    ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: rgba(156, 163, 175, 0.4); border-radius: 3px; }
-    ::-webkit-scrollbar-thumb:hover { background: rgba(156, 163, 175, 0.6); }
+    /* ========================================================================= */
+    /* NEUMORPHISM (SOFT UI) DESIGN TOKENS                                       */
+    /* ========================================================================= */
+    :root {
+      /* Dark Theme Neumorphic Palette (Default) */
+      --neu-bg: #181b22;
+      --neu-surface: #181b22;
+      --neu-shadow-dark: #0e1014;
+      --neu-shadow-light: #242832;
+      --neu-inset-dark: #0c0d11;
+      --neu-inset-light: #21252f;
+      --neu-text: #e2e8f0;
+      --neu-text-muted: #8e9bb0;
+      --neu-border: rgba(255, 255, 255, 0.035);
+      --neu-accent: #14b8a6;
+      --neu-accent-glow: rgba(20, 184, 166, 0.35);
+      --neu-active-glow: rgba(16, 185, 129, 0.4);
+    }
 
-    /* Smooth gauge transition */
+    html:not(.dark) {
+      /* Light Theme Neumorphic Palette */
+      --neu-bg: #e5ebf5;
+      --neu-surface: #e5ebf5;
+      --neu-shadow-dark: #c1cbdb;
+      --neu-shadow-light: #ffffff;
+      --neu-inset-dark: #bcc6d7;
+      --neu-inset-light: #ffffff;
+      --neu-text: #1e293b;
+      --neu-text-muted: #64748b;
+      --neu-border: rgba(255, 255, 255, 0.6);
+      --neu-accent: #0d9488;
+      --neu-accent-glow: rgba(13, 148, 136, 0.25);
+      --neu-active-glow: rgba(16, 185, 129, 0.35);
+    }
+
+    body {
+      background-color: var(--neu-bg);
+      color: var(--neu-text);
+      font-family: 'Inter', sans-serif;
+    }
+
+    /* Extruded raised element (Cards & Panels) */
+    .neu-flat {
+      background: var(--neu-surface);
+      box-shadow: 7px 7px 16px var(--neu-shadow-dark), -7px -7px 16px var(--neu-shadow-light);
+      border: 1px solid var(--neu-border);
+      border-radius: 1.25rem;
+    }
+
+    .neu-flat-sm {
+      background: var(--neu-surface);
+      box-shadow: 4px 4px 10px var(--neu-shadow-dark), -4px -4px 10px var(--neu-shadow-light);
+      border: 1px solid var(--neu-border);
+      border-radius: 0.85rem;
+    }
+
+    /* Debossed / Inset element (Digital wells, input boxes, recessed tracks) */
+    .neu-pressed {
+      background: var(--neu-surface);
+      box-shadow: inset 4px 4px 8px var(--neu-inset-dark), inset -4px -4px 8px var(--neu-inset-light);
+      border: 1px solid var(--neu-border);
+      border-radius: 0.85rem;
+    }
+
+    .neu-pressed-deep {
+      background: var(--neu-surface);
+      box-shadow: inset 6px 6px 14px var(--neu-inset-dark), inset -6px -6px 14px var(--neu-inset-light);
+      border: 1px solid var(--neu-border);
+      border-radius: 1rem;
+    }
+
+    /* Tactile Interactive Buttons */
+    .neu-btn {
+      background: var(--neu-surface);
+      box-shadow: 5px 5px 12px var(--neu-shadow-dark), -5px -5px 12px var(--neu-shadow-light);
+      border: 1px solid var(--neu-border);
+      border-radius: 0.85rem;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .neu-btn:hover {
+      box-shadow: 7px 7px 16px var(--neu-shadow-dark), -7px -7px 16px var(--neu-shadow-light);
+      transform: translateY(-1px);
+    }
+
+    .neu-btn:active, .neu-btn.active {
+      box-shadow: inset 4px 4px 8px var(--neu-inset-dark), inset -4px -4px 8px var(--neu-inset-light);
+      transform: translateY(1px);
+    }
+
+    /* Tactile Push-Button Switch for Capacitor Bank */
+    .neu-switch-off {
+      background: var(--neu-surface);
+      box-shadow: 5px 5px 12px var(--neu-shadow-dark), -5px -5px 12px var(--neu-shadow-light);
+      border: 1px solid var(--neu-border);
+      border-radius: 1rem;
+      transition: all 0.25s ease;
+    }
+
+    .neu-switch-off:hover:not(:disabled) {
+      box-shadow: 7px 7px 15px var(--neu-shadow-dark), -7px -7px 15px var(--neu-shadow-light);
+      transform: translateY(-1px);
+    }
+
+    .neu-switch-on {
+      background: var(--neu-surface);
+      box-shadow: inset 4px 4px 10px var(--neu-inset-dark), inset -4px -4px 10px var(--neu-inset-light), 0 0 16px var(--neu-accent-glow);
+      border: 1px solid rgba(20, 184, 166, 0.35);
+      border-radius: 1rem;
+      transform: translateY(1px);
+      transition: all 0.25s ease;
+    }
+
+    .neu-switch-wait {
+      background: var(--neu-surface);
+      box-shadow: inset 3px 3px 6px var(--neu-inset-dark), inset -3px -3px 6px var(--neu-inset-light), 0 0 14px rgba(245, 158, 11, 0.4);
+      border: 1px solid rgba(245, 158, 11, 0.5);
+      border-radius: 1rem;
+    }
+
+    /* Semicircle Gauge transitions */
     .gauge-fill {
       transition: stroke-dashoffset 0.8s cubic-bezier(0.4, 0, 0.2, 1), stroke 0.4s ease;
     }
+
     .pulse-dot {
       box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
       animation: pulse-ring 2s infinite;
     }
+
     @keyframes pulse-ring {
       0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
       70% { box-shadow: 0 0 0 8px rgba(16, 185, 129, 0); }
       100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
     }
+
+    /* Scrollbars */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(156, 163, 175, 0.3); border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(156, 163, 175, 0.5); }
   </style>
 </head>
-<body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col font-sans transition-colors duration-200 antialiased">
+<body class="min-h-screen flex flex-col antialiased transition-colors duration-300">
 
   <!-- ========================================================================= -->
-  <!-- Top Navigation Header -->
+  <!-- Top Navigation Header (Neumorphic Floating Console)                      -->
   <!-- ========================================================================= -->
-  <header class="sticky top-0 z-40 bg-slate-900/90 dark:bg-slate-900/90 backdrop-blur-md border-b border-slate-800">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+  <header class="sticky top-0 z-40 backdrop-blur-md bg-[var(--neu-bg)]/85 border-b border-[var(--neu-border)] transition-colors">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
       
-      <!-- Brand & Title -->
-      <div class="flex items-center gap-3">
-        <div class="p-2 rounded-xl bg-teal-500/10 text-teal-400 border border-teal-500/20">
-          <i data-lucide="zap" class="w-5 h-5"></i>
+      <!-- Brand & Title (Embossed Emblem) -->
+      <div class="flex items-center gap-3.5">
+        <div class="neu-btn p-3 rounded-2xl flex items-center justify-center text-teal-400">
+          <i data-lucide="zap" class="w-6 h-6"></i>
         </div>
         <div>
           <div class="flex items-center gap-2">
-            <h1 class="text-base sm:text-lg font-bold tracking-tight text-white leading-none">
+            <h1 class="text-base sm:text-lg font-extrabold tracking-tight leading-none">
               ESP32 Smart Power Monitor
             </h1>
-            <span id="badge-demo" onclick="openSettingsModal()" class="cursor-pointer hidden text-[10px] font-semibold uppercase px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 hover:bg-indigo-500/30 transition-colors" title="Click to configure settings">
-              Demo Simulation
+            <span id="badge-demo" onclick="openSettingsModal()" class="cursor-pointer hidden text-[10px] font-bold uppercase px-2.5 py-0.5 rounded-full neu-pressed text-indigo-400 hover:text-indigo-300 transition-colors" title="Click to configure settings">
+              Demo
             </span>
           </div>
-          <span class="text-[11px] text-slate-400">
-            Automatic Power Factor Correction &bull; Single Phase 230V 50Hz
+          <span class="text-xs text-[var(--neu-text-muted)] font-medium">
+            Automatic Power Factor Correction &bull; 230V 50Hz (7-Step APFC)
           </span>
         </div>
       </div>
 
       <!-- Right controls: status pill, delay badge, theme & settings -->
-      <div class="flex items-center gap-2 sm:gap-3">
+      <div class="flex items-center gap-2.5 sm:gap-3.5">
         
-        <!-- Connection Status Pill (clickable to open settings) -->
-        <div id="conn-pill" onclick="openSettingsModal()" class="cursor-pointer flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium bg-slate-800 border border-slate-700 hover:border-slate-600 transition-colors" title="Click to configure Adafruit IO connection">
+        <!-- Connection Status Pill -->
+        <div id="conn-pill" onclick="openSettingsModal()" class="cursor-pointer neu-btn flex items-center gap-2 px-3.5 py-2 rounded-full text-xs font-semibold" title="Click to configure MQTT connection">
           <span id="conn-dot" class="w-2.5 h-2.5 rounded-full bg-rose-500"></span>
-          <span id="conn-text" class="text-slate-300 font-mono text-[11px]">Disconnected</span>
+          <span id="conn-text" class="font-mono text-[11px] text-[var(--neu-text)]">Connecting...</span>
         </div>
 
         <!-- Data Delayed Badge -->
-        <div id="delayed-badge" class="hidden items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-amber-500/10 text-amber-300 border border-amber-500/30" title="Updates are delayed due to Adafruit IO rate limit or network lag">
+        <div id="delayed-badge" class="hidden neu-pressed items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-semibold text-amber-400">
           <i data-lucide="clock" class="w-3.5 h-3.5"></i>
           <span>Delayed (<span id="delayed-secs">0</span>s)</span>
         </div>
 
-        <!-- Theme Toggle -->
-        <button id="btn-theme" onclick="toggleTheme()" class="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors" title="Toggle Dark/Light Mode">
+        <!-- Theme Toggle Button -->
+        <button id="btn-theme" onclick="toggleTheme()" class="neu-btn p-2.5 rounded-xl text-[var(--neu-text-muted)] hover:text-amber-400 transition-colors" title="Toggle Dark/Light Neumorphic Mode">
           <i data-lucide="sun" class="w-4 h-4 hidden dark:inline text-amber-400"></i>
           <i data-lucide="moon" class="w-4 h-4 inline dark:hidden text-slate-600"></i>
         </button>
 
         <!-- Settings Button -->
-        <button id="btn-settings" onclick="openSettingsModal()" class="cursor-pointer flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-teal-600/20 hover:bg-teal-600/30 text-teal-300 border border-teal-500/40 text-xs font-semibold transition-colors" title="Configure Adafruit IO, Feeds & Parameters">
-          <i data-lucide="settings" class="w-4 h-4 text-teal-400"></i>
-          <span class="inline">Settings &amp; IoT</span>
+        <button id="btn-settings" onclick="openSettingsModal()" class="neu-btn flex items-center gap-2 px-3.5 py-2 rounded-xl text-teal-400 text-xs font-bold transition-colors" title="Configure EMQX Broker & Parameters">
+          <i data-lucide="settings" class="w-4 h-4"></i>
+          <span class="hidden sm:inline">Settings</span>
         </button>
       </div>
     </div>
 
-    <!-- Tab navigation -->
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex space-x-2 border-t border-slate-800/80">
-      <button id="tab-btn-dashboard" onclick="switchTab('dashboard')" class="flex items-center gap-2 px-4 py-2.5 text-xs font-semibold border-b-2 border-teal-500 text-teal-400 transition-all">
-        <i data-lucide="layout-dashboard" class="w-4 h-4"></i> Dashboard
-      </button>
-      <button id="tab-btn-charts" onclick="switchTab('charts')" class="flex items-center gap-2 px-4 py-2.5 text-xs font-semibold border-b-2 border-transparent text-slate-400 hover:text-slate-200 transition-all">
-        <i data-lucide="line-chart" class="w-4 h-4"></i> Telemetry &amp; Charts
-      </button>
+    <!-- Neumorphic Segmented Tab Switcher -->
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-3">
+      <div class="neu-pressed p-1 rounded-xl inline-flex gap-1">
+        <button id="tab-btn-dashboard" onclick="switchTab('dashboard')" class="neu-btn flex items-center gap-2 px-4 py-1.5 text-xs font-bold rounded-lg text-teal-400 active">
+          <i data-lucide="layout-dashboard" class="w-4 h-4"></i> Dashboard
+        </button>
+        <button id="tab-btn-charts" onclick="switchTab('charts')" class="neu-btn flex items-center gap-2 px-4 py-1.5 text-xs font-bold rounded-lg text-[var(--neu-text-muted)] hover:text-[var(--neu-text)]">
+          <i data-lucide="line-chart" class="w-4 h-4"></i> Telemetry &amp; Charts
+        </button>
+      </div>
     </div>
   </header>
 
   <!-- ========================================================================= -->
-  <!-- Main Content Container -->
+  <!-- Main Content Container                                                   -->
   <!-- ========================================================================= -->
   <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-1 w-full space-y-6">
 
-    <!-- Offline Warning Alert (shown when disconnected) -->
-    <div id="offline-alert" class="hidden flex items-center justify-between p-4 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300">
+    <!-- Offline Warning Alert -->
+    <div id="offline-alert" class="hidden neu-flat p-4 rounded-2xl flex items-center justify-between border-rose-500/30 text-rose-300">
       <div class="flex items-center gap-3">
-        <i data-lucide="wifi-off" class="w-5 h-5 text-rose-400"></i>
+        <div class="neu-pressed p-2 rounded-xl text-rose-400">
+          <i data-lucide="wifi-off" class="w-5 h-5"></i>
+        </div>
         <div>
-          <p class="text-sm font-semibold">Device is Offline or Disconnected</p>
-          <p class="text-xs text-rose-400/80">Manual capacitor controls are locked for safety. Waiting for connection to EMQX Cloud...</p>
+          <p class="text-sm font-bold">Device is Offline or Disconnected</p>
+          <p class="text-xs text-[var(--neu-text-muted)]">Manual capacitor controls are safety locked until connection to EMQX Cloud is confirmed.</p>
         </div>
       </div>
-      <button onclick="openSettingsModal()" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-rose-600 hover:bg-rose-500 text-white transition-colors">
+      <button onclick="openSettingsModal()" class="neu-btn px-4 py-2 text-xs font-bold text-rose-400">
         Check IoT Config
       </button>
     </div>
 
     <!-- Over-compensation Leading PF Alert -->
-    <div id="leading-alert" class="hidden flex items-center gap-3 p-4 rounded-xl bg-rose-600/20 border border-rose-500/50 text-rose-200 animate-pulse">
-      <i data-lucide="alert-triangle" class="w-6 h-6 text-rose-400 flex-shrink-0"></i>
+    <div id="leading-alert" class="hidden neu-flat p-4 rounded-2xl flex items-center gap-3.5 border-rose-500/50 text-rose-300 animate-pulse">
+      <div class="neu-pressed p-2 rounded-xl text-rose-400">
+        <i data-lucide="alert-triangle" class="w-6 h-6"></i>
+      </div>
       <div>
-        <h4 class="text-sm font-bold uppercase tracking-wide">Warning: Leading Power Factor Detected!</h4>
-        <p class="text-xs text-rose-300">The circuit is currently over-compensated into capacitive mode. Reduce active capacitor steps immediately to prevent grid resonance.</p>
+        <h4 class="text-sm font-bold uppercase tracking-wider">Warning: Leading Power Factor Detected!</h4>
+        <p class="text-xs text-[var(--neu-text-muted)]">Circuit is currently over-compensated into capacitive mode. Reduce active capacitor steps immediately.</p>
       </div>
     </div>
 
     <!-- ======================================================================= -->
-    <!-- TAB 1: DASHBOARD -->
+    <!-- TAB 1: DASHBOARD                                                        -->
     <!-- ======================================================================= -->
     <div id="tab-dashboard" class="space-y-6">
 
-      <!-- SECTION 1: LIVE READINGS (6 Cards) -->
+      <!-- SECTION 1: LIVE ELECTRICAL READINGS (6 Neumorphic Tiles) -->
       <div>
-        <div class="flex items-center justify-between mb-3">
-          <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-            <i data-lucide="activity" class="w-3.5 h-3.5 text-teal-400"></i> Live Electrical Readings
+        <div class="flex items-center justify-between mb-3 px-1">
+          <h2 class="text-xs font-extrabold uppercase tracking-wider text-[var(--neu-text-muted)] flex items-center gap-2">
+            <i data-lucide="activity" class="w-4 h-4 text-teal-400"></i> Live Electrical Telemetry
           </h2>
-          <span id="reading-age" class="text-[11px] text-slate-400 font-mono">Last update: never</span>
+          <span id="reading-age" class="text-xs text-[var(--neu-text-muted)] font-mono">Last update: never</span>
         </div>
 
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3 sm:gap-4">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
           
           <!-- Card 1: Voltage -->
-          <div class="p-4 rounded-xl bg-slate-800/80 border border-slate-700/80 shadow-sm relative overflow-hidden">
-            <div class="flex items-center justify-between text-slate-400 mb-1">
-              <span class="text-xs font-medium">Voltage RMS</span>
+          <div class="neu-flat p-4.5 rounded-2xl flex flex-col justify-between">
+            <div class="flex items-center justify-between text-[var(--neu-text-muted)] mb-2">
+              <span class="text-xs font-semibold">Voltage RMS</span>
               <i data-lucide="zap" class="w-4 h-4 text-amber-400"></i>
             </div>
-            <div class="flex items-baseline gap-1">
-              <span id="val-v" class="text-2xl font-bold font-mono text-white tracking-tight">0.0</span>
-              <span class="text-xs text-slate-400 font-semibold">V</span>
+            <div class="neu-pressed p-3 rounded-xl flex items-baseline justify-between mb-2">
+              <span id="val-v" class="text-2xl font-bold font-mono tracking-tight">0.0</span>
+              <span class="text-xs text-amber-400 font-bold font-mono">V</span>
             </div>
-            <div class="mt-2 flex items-center justify-between text-[10px] text-slate-400 font-mono">
+            <div class="flex items-center justify-between text-[11px] text-[var(--neu-text-muted)] font-mono">
               <span>Nominal: 230V</span>
-              <span id="v-status" class="text-emerald-400">Normal</span>
+              <span id="v-status" class="text-emerald-400 font-semibold">Live</span>
             </div>
           </div>
 
           <!-- Card 2: Current -->
-          <div class="p-4 rounded-xl bg-slate-800/80 border border-slate-700/80 shadow-sm relative overflow-hidden">
-            <div class="flex items-center justify-between text-slate-400 mb-1">
-              <span class="text-xs font-medium">Current RMS</span>
+          <div class="neu-flat p-4.5 rounded-2xl flex flex-col justify-between">
+            <div class="flex items-center justify-between text-[var(--neu-text-muted)] mb-2">
+              <span class="text-xs font-semibold">Current RMS</span>
               <i data-lucide="gauge" class="w-4 h-4 text-sky-400"></i>
             </div>
-            <div class="flex items-baseline gap-1">
-              <span id="val-i" class="text-2xl font-bold font-mono text-white tracking-tight">0.000</span>
-              <span class="text-xs text-slate-400 font-semibold">A</span>
+            <div class="neu-pressed p-3 rounded-xl flex items-baseline justify-between mb-2">
+              <span id="val-i" class="text-2xl font-bold font-mono tracking-tight">0.000</span>
+              <span class="text-xs text-sky-400 font-bold font-mono">A</span>
             </div>
-            <div class="mt-2 text-[10px] text-slate-400 font-mono">
-              Line Current (ACS712)
+            <div class="flex items-center justify-between text-[11px] text-[var(--neu-text-muted)] font-mono">
+              <span>ACS712 Sensor</span>
+              <span id="i-status" class="text-sky-400 font-semibold">Normal</span>
             </div>
           </div>
 
           <!-- Card 3: Active Power P -->
-          <div class="p-4 rounded-xl bg-slate-800/80 border border-slate-700/80 shadow-sm relative overflow-hidden">
-            <div class="flex items-center justify-between text-slate-400 mb-1">
-              <span class="text-xs font-medium">Real Power (P)</span>
+          <div class="neu-flat p-4.5 rounded-2xl flex flex-col justify-between">
+            <div class="flex items-center justify-between text-[var(--neu-text-muted)] mb-2">
+              <span class="text-xs font-semibold">Real Power (P)</span>
               <i data-lucide="flame" class="w-4 h-4 text-emerald-400"></i>
             </div>
-            <div class="flex items-baseline gap-1">
-              <span id="val-p" class="text-2xl font-bold font-mono text-white tracking-tight">0.0</span>
-              <span class="text-xs text-slate-400 font-semibold">W</span>
+            <div class="neu-pressed p-3 rounded-xl flex items-baseline justify-between mb-2">
+              <span id="val-p" class="text-2xl font-bold font-mono tracking-tight text-emerald-400">0.0</span>
+              <span class="text-xs text-emerald-400 font-bold font-mono">W</span>
             </div>
-            <div class="mt-2 text-[10px] text-slate-400 font-mono">
-              Working Work Load
+            <div class="text-[11px] text-[var(--neu-text-muted)] font-mono">
+              Useful Work Rate
             </div>
           </div>
 
           <!-- Card 4: Reactive Power Q -->
-          <div class="p-4 rounded-xl bg-slate-800/80 border border-slate-700/80 shadow-sm relative overflow-hidden">
-            <div class="flex items-center justify-between text-slate-400 mb-1">
-              <span class="text-xs font-medium">Reactive (Q)</span>
-              <i data-lucide="arrow-up-down" class="w-4 h-4 text-purple-400"></i>
+          <div class="neu-flat p-4.5 rounded-2xl flex flex-col justify-between">
+            <div class="flex items-center justify-between text-[var(--neu-text-muted)] mb-2">
+              <span class="text-xs font-semibold">Reactive (Q)</span>
+              <i data-lucide="refresh-cw" class="w-4 h-4 text-rose-400"></i>
             </div>
-            <div class="flex items-baseline gap-1">
-              <span id="val-q" class="text-2xl font-bold font-mono text-white tracking-tight">0.0</span>
-              <span class="text-xs text-slate-400 font-semibold">VAR</span>
+            <div class="neu-pressed p-3 rounded-xl flex items-baseline justify-between mb-2">
+              <span id="val-q" class="text-2xl font-bold font-mono tracking-tight">0.0</span>
+              <span class="text-xs text-rose-400 font-bold font-mono">VAR</span>
             </div>
-            <div class="mt-2 flex items-center justify-between text-[10px] font-mono">
-              <span class="text-slate-400">Inductive / Cap</span>
+            <div class="flex items-center justify-between text-[11px] font-mono">
+              <span class="text-[var(--neu-text-muted)]">Phase:</span>
               <span id="val-q-sign" class="text-teal-400 font-bold">+ Lag</span>
             </div>
           </div>
 
           <!-- Card 5: Apparent Power S -->
-          <div class="p-4 rounded-xl bg-slate-800/80 border border-slate-700/80 shadow-sm relative overflow-hidden">
-            <div class="flex items-center justify-between text-slate-400 mb-1">
-              <span class="text-xs font-medium">Apparent (S)</span>
-              <i data-lucide="bar-chart-3" class="w-4 h-4 text-cyan-400"></i>
+          <div class="neu-flat p-4.5 rounded-2xl flex flex-col justify-between">
+            <div class="flex items-center justify-between text-[var(--neu-text-muted)] mb-2">
+              <span class="text-xs font-semibold">Apparent (S)</span>
+              <i data-lucide="pie-chart" class="w-4 h-4 text-purple-400"></i>
             </div>
-            <div class="flex items-baseline gap-1">
-              <span id="val-s" class="text-2xl font-bold font-mono text-white tracking-tight">0.0</span>
-              <span class="text-xs text-slate-400 font-semibold">VA</span>
+            <div class="neu-pressed p-3 rounded-xl flex items-baseline justify-between mb-2">
+              <span id="val-s" class="text-2xl font-bold font-mono tracking-tight">0.0</span>
+              <span class="text-xs text-purple-400 font-bold font-mono">VA</span>
             </div>
-            <div class="mt-2 text-[10px] text-slate-400 font-mono">
-              Total Grid Capacity
+            <div class="text-[11px] text-[var(--neu-text-muted)] font-mono">
+              V_rms &times; I_rms
             </div>
           </div>
 
-          <!-- Card 6: Frequency -->
-          <div class="p-4 rounded-xl bg-slate-800/80 border border-slate-700/80 shadow-sm relative overflow-hidden">
-            <div class="flex items-center justify-between text-slate-400 mb-1">
-              <span class="text-xs font-medium">AC Frequency</span>
-              <i data-lucide="radio" class="w-4 h-4 text-pink-400"></i>
+          <!-- Card 6: Grid Frequency -->
+          <div class="neu-flat p-4.5 rounded-2xl flex flex-col justify-between">
+            <div class="flex items-center justify-between text-[var(--neu-text-muted)] mb-2">
+              <span class="text-xs font-semibold">Frequency</span>
+              <i data-lucide="waves" class="w-4 h-4 text-teal-400"></i>
             </div>
-            <div class="flex items-baseline gap-1">
-              <span id="val-freq" class="text-2xl font-bold font-mono text-white tracking-tight">50.0</span>
-              <span class="text-xs text-slate-400 font-semibold">Hz</span>
+            <div class="neu-pressed p-3 rounded-xl flex items-baseline justify-between mb-2">
+              <span id="val-freq" class="text-2xl font-bold font-mono tracking-tight text-teal-400">50.0</span>
+              <span class="text-xs text-teal-400 font-bold font-mono">Hz</span>
             </div>
-            <div class="mt-2 text-[10px] text-slate-400 font-mono">
-              Zero-Cross Synced
+            <div class="text-[11px] text-[var(--neu-text-muted)] font-mono">
+              Grid Synchronized
             </div>
           </div>
+
         </div>
       </div>
 
-      <!-- SECTION 2: POWER FACTOR & CORRECTION EFFECTIVENESS PANEL -->
-      <div class="p-5 sm:p-6 rounded-2xl bg-slate-800/90 border border-slate-700 shadow-md">
-        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between pb-4 border-b border-slate-700/80 gap-3">
+      <!-- SECTION 2: NEUMORPHIC POWER FACTOR CONSOLE & EFFECTIVENESS -->
+      <div class="neu-flat p-6 sm:p-7 rounded-3xl">
+        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between pb-5 border-b border-[var(--neu-border)] gap-4">
           <div>
-            <h3 class="text-base font-bold text-white flex items-center gap-2">
-              <i data-lucide="scale" class="w-5 h-5 text-teal-400"></i> Automatic Power Factor Correction (APFC)
+            <h3 class="text-base sm:text-lg font-bold flex items-center gap-2.5">
+              <i data-lucide="scale" class="w-5 h-5 text-teal-400"></i> Automatic Power Factor Correction Console
             </h3>
-            <p class="text-xs text-slate-400 mt-0.5">
-              Target Power Factor: <span class="font-bold text-teal-300">0.98 (Lagging)</span> &bull; 7 Binary Capacitor Stages (22 µF Total)
+            <p class="text-xs text-[var(--neu-text-muted)] mt-1 font-medium">
+              Target Power Factor: <strong class="text-teal-400">0.99 (Optimal ~1.00)</strong> &bull; Strict Over-Correction Guard &bull; 7 Binary Steps (22 µF Total)
             </p>
           </div>
           <div class="flex items-center gap-2">
-            <span id="badge-pf-sign" class="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+            <span id="badge-pf-sign" class="neu-pressed px-3.5 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider text-emerald-400">
               Lagging (Inductive)
             </span>
           </div>
         </div>
 
-        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 pt-6">
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-7 pt-6">
           
-          <!-- Gauges (Left Side, 5 Cols) -->
-          <div class="lg:col-span-5 flex flex-col sm:flex-row items-center justify-around gap-6 bg-slate-900/50 p-4 rounded-xl border border-slate-700/50">
+          <!-- Dual Gauges (Left 5 Cols) -->
+          <div class="lg:col-span-5 neu-pressed-deep p-6 rounded-2xl flex flex-col sm:flex-row items-center justify-around gap-6">
             
-            <!-- Gauge 1: Before Correction -->
+            <!-- Gauge 1: Uncompensated PF Before -->
             <div class="flex flex-col items-center">
-              <div class="relative w-36 h-24">
+              <div class="relative w-40 h-28">
                 <svg viewBox="0 0 100 55" class="w-full h-full overflow-visible">
-                  <!-- Background Track Arc -->
-                  <path d="M 10 50 A 40 40 0 0 1 90 50" fill="none" stroke="#334155" stroke-width="8" stroke-linecap="round" />
-                  <!-- Target Line at 0.98 (Angle ~ 176.4 deg) -->
-                  <line x1="89" y1="47" x2="95" y2="45" stroke="#94a3b8" stroke-width="2" stroke-dasharray="2,1" />
+                  <!-- Background Arc Track -->
+                  <path d="M 10 50 A 40 40 0 0 1 90 50" fill="none" stroke="currentColor" class="text-[var(--neu-shadow-dark)]" stroke-width="9" stroke-linecap="round" />
+                  <!-- Target Line at 0.99 -->
+                  <line x1="89" y1="46" x2="96" y2="44" stroke="#94a3b8" stroke-width="2" stroke-dasharray="2,1" />
                   <!-- Filled Value Arc -->
-                  <path id="gauge-arc-before" class="gauge-fill" d="M 10 50 A 40 40 0 0 1 90 50" fill="none" stroke="#f43f5e" stroke-width="8" stroke-linecap="round" stroke-dasharray="125.66" stroke-dashoffset="125.66" />
+                  <path id="gauge-arc-before" class="gauge-fill" d="M 10 50 A 40 40 0 0 1 90 50" fill="none" stroke="#f43f5e" stroke-width="9" stroke-linecap="round" stroke-dasharray="125.66" stroke-dashoffset="125.66" />
                 </svg>
                 <div class="absolute inset-0 flex flex-col items-center justify-end pb-1">
-                  <span id="gauge-val-before" class="text-2xl font-black font-mono text-white leading-none">0.00</span>
-                  <span class="text-[9px] uppercase tracking-wider text-slate-400 mt-1">Uncompensated</span>
+                  <span id="gauge-val-before" class="text-2xl font-black font-mono leading-none">1.00</span>
+                  <span class="text-[10px] uppercase font-bold tracking-wider text-[var(--neu-text-muted)] mt-1.5">Uncompensated</span>
                 </div>
               </div>
-              <span class="text-xs font-semibold text-slate-300 mt-2">PF Before</span>
-              <span class="text-[10px] text-slate-400">Baseline load PF</span>
+              <span class="text-xs font-bold mt-2">Baseline PF</span>
+              <span class="text-[11px] text-[var(--neu-text-muted)] font-mono">Load Raw PF</span>
             </div>
 
-            <!-- Arrow separator -->
+            <!-- Arrow separator with Gain pill -->
             <div class="hidden sm:flex flex-col items-center text-teal-400">
-              <i data-lucide="arrow-right" class="w-6 h-6"></i>
-              <span id="stat-pf-delta" class="text-xs font-mono font-bold mt-1 text-emerald-400">+0.00</span>
+              <div class="neu-btn p-2 rounded-full mb-1">
+                <i data-lucide="arrow-right" class="w-5 h-5"></i>
+              </div>
+              <span id="stat-pf-delta" class="text-xs font-mono font-bold text-emerald-400">+0.00</span>
             </div>
 
-            <!-- Gauge 2: After Correction -->
+            <!-- Gauge 2: Compensated PF After (Near 1.00) -->
             <div class="flex flex-col items-center">
-              <div class="relative w-36 h-24">
+              <div class="relative w-40 h-28">
                 <svg viewBox="0 0 100 55" class="w-full h-full overflow-visible">
-                  <!-- Background Track Arc -->
-                  <path d="M 10 50 A 40 40 0 0 1 90 50" fill="none" stroke="#334155" stroke-width="8" stroke-linecap="round" />
-                  <!-- Target Marker 0.98 -->
-                  <line x1="89" y1="47" x2="95" y2="45" stroke="#14b8a6" stroke-width="2" />
+                  <!-- Background Arc Track -->
+                  <path d="M 10 50 A 40 40 0 0 1 90 50" fill="none" stroke="currentColor" class="text-[var(--neu-shadow-dark)]" stroke-width="9" stroke-linecap="round" />
+                  <!-- Target Marker 0.99 -->
+                  <line x1="89" y1="46" x2="96" y2="44" stroke="#14b8a6" stroke-width="2.5" />
                   <!-- Filled Value Arc -->
-                  <path id="gauge-arc-after" class="gauge-fill" d="M 10 50 A 40 40 0 0 1 90 50" fill="none" stroke="#10b981" stroke-width="8" stroke-linecap="round" stroke-dasharray="125.66" stroke-dashoffset="125.66" />
+                  <path id="gauge-arc-after" class="gauge-fill" d="M 10 50 A 40 40 0 0 1 90 50" fill="none" stroke="#10b981" stroke-width="9" stroke-linecap="round" stroke-dasharray="125.66" stroke-dashoffset="125.66" />
                 </svg>
                 <div class="absolute inset-0 flex flex-col items-center justify-end pb-1">
-                  <span id="gauge-val-after" class="text-2xl font-black font-mono text-emerald-400 leading-none">0.00</span>
-                  <span class="text-[9px] uppercase tracking-wider text-teal-300 mt-1">Compensated</span>
+                  <span id="gauge-val-after" class="text-2xl font-black font-mono text-emerald-400 leading-none">1.00</span>
+                  <span class="text-[10px] uppercase font-bold tracking-wider text-teal-400 mt-1.5">Compensated</span>
                 </div>
               </div>
-              <span class="text-xs font-semibold text-slate-300 mt-2">PF After</span>
-              <span class="text-[10px] text-slate-400">Live corrected PF</span>
+              <span class="text-xs font-bold text-teal-400 mt-2">Corrected PF</span>
+              <span class="text-[11px] text-[var(--neu-text-muted)] font-mono">Optimized (~1.00)</span>
             </div>
+
           </div>
 
-          <!-- Statistics & Metrics (Right Side, 7 Cols) -->
-          <div class="lg:col-span-7 grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <!-- Effectiveness Stat Tiles (Right 7 Cols) -->
+          <div class="lg:col-span-7 grid grid-cols-2 sm:grid-cols-4 gap-3.5">
             
-            <!-- Metric 1: Improvement % -->
-            <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-700/60">
-              <div class="text-[11px] font-medium text-slate-400">PF Gain</div>
-              <div id="stat-pf-percent" class="text-lg font-bold font-mono text-emerald-400 mt-0.5">+0.0%</div>
-              <div class="text-[10px] text-slate-400 mt-1 font-mono">Efficiency Boost</div>
+            <div class="neu-pressed p-3.5 rounded-2xl flex flex-col justify-between">
+              <div class="text-xs font-semibold text-[var(--neu-text-muted)]">PF Gain</div>
+              <div id="stat-pf-percent" class="text-xl font-bold font-mono text-emerald-400 my-1">+0.0%</div>
+              <div class="text-[10px] text-[var(--neu-text-muted)] font-mono">Efficiency Boost</div>
             </div>
 
-            <!-- Metric 2: Reactive Power Saved -->
-            <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-700/60">
-              <div class="text-[11px] font-medium text-slate-400">Q Saved</div>
-              <div id="stat-q-saved" class="text-lg font-bold font-mono text-sky-400 mt-0.5">0.0 <span class="text-xs">VAR</span></div>
-              <div class="text-[10px] text-slate-400 mt-1 font-mono">Grid Penalty Relief</div>
+            <div class="neu-pressed p-3.5 rounded-2xl flex flex-col justify-between">
+              <div class="text-xs font-semibold text-[var(--neu-text-muted)]">Q Saved</div>
+              <div id="stat-q-saved" class="text-xl font-bold font-mono text-sky-400 my-1">0.0 <span class="text-xs font-normal">VAR</span></div>
+              <div class="text-[10px] text-[var(--neu-text-muted)] font-mono">Penalty Relief</div>
             </div>
 
-            <!-- Metric 3: Active Compensation Qc -->
-            <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-700/60">
-              <div class="text-[11px] font-medium text-slate-400">Capacitor Qc</div>
-              <div id="stat-qc" class="text-lg font-bold font-mono text-teal-300 mt-0.5">0.0 <span class="text-xs">VAR</span></div>
-              <div class="text-[10px] text-slate-400 mt-1 font-mono">2π·f·C·V² Inject</div>
+            <div class="neu-pressed p-3.5 rounded-2xl flex flex-col justify-between">
+              <div class="text-xs font-semibold text-[var(--neu-text-muted)]">Capacitor Qc</div>
+              <div id="stat-qc" class="text-xl font-bold font-mono text-teal-400 my-1">0.0 <span class="text-xs font-normal">VAR</span></div>
+              <div class="text-[10px] text-[var(--neu-text-muted)] font-mono">2&pi;fCV&sup2; Injected</div>
             </div>
 
-            <!-- Metric 4: Line Current Drop -->
-            <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-700/60">
-              <div class="text-[11px] font-medium text-slate-400">Current Reduction</div>
-              <div id="stat-i-drop" class="text-lg font-bold font-mono text-amber-300 mt-0.5">0.00 <span class="text-xs">A</span></div>
-              <div class="text-[10px] text-slate-400 mt-1 font-mono">I_before → I_after</div>
+            <div class="neu-pressed p-3.5 rounded-2xl flex flex-col justify-between">
+              <div class="text-xs font-semibold text-[var(--neu-text-muted)]">Current Drop</div>
+              <div id="stat-i-drop" class="text-xl font-bold font-mono text-amber-400 my-1">0.00 <span class="text-xs font-normal">A</span></div>
+              <div class="text-[10px] text-[var(--neu-text-muted)] font-mono">Line Loss Saved</div>
             </div>
 
-            <!-- Additional Detail Strip -->
-            <div class="col-span-2 sm:col-span-4 p-3 rounded-xl bg-teal-950/20 border border-teal-800/40 flex flex-wrap items-center justify-between text-xs text-slate-300 gap-2">
-              <div class="flex items-center gap-2">
-                <i data-lucide="layers" class="w-4 h-4 text-teal-400"></i>
-                <span>Active Capacitance: <strong id="stat-total-c" class="text-white font-mono">0.0 µF</strong> / 22.0 µF</span>
+            <!-- Full-width Status Banner -->
+            <div class="col-span-2 sm:col-span-4 neu-pressed p-4 rounded-2xl flex flex-wrap items-center justify-between text-xs gap-3">
+              <div class="flex items-center gap-2.5">
+                <div class="neu-btn p-1.5 rounded-lg text-teal-400">
+                  <i data-lucide="layers" class="w-4 h-4"></i>
+                </div>
+                <span>Active Bank: <strong id="stat-total-c" class="font-mono text-teal-400 font-bold text-sm">0.0 µF</strong> / 22.0 µF</span>
               </div>
               <div class="flex items-center gap-2">
-                <span class="text-slate-400 font-mono">Bitmask:</span>
-                <span id="stat-cap-mask" class="font-mono text-teal-300 font-bold bg-slate-800 px-2 py-0.5 rounded">0b0000000 (0x00)</span>
+                <span class="text-[var(--neu-text-muted)] font-mono">Relay Bitmask:</span>
+                <span id="stat-cap-mask" class="neu-btn font-mono text-teal-400 font-bold px-3 py-1 rounded-lg text-xs">0b0000000 (0x00)</span>
               </div>
             </div>
+
           </div>
+
         </div>
       </div>
 
-      <!-- SECTION 3: LOAD TYPE DETECTION & MANUAL CAPACITOR CONTROL (2 Columns) -->
+      <!-- SECTION 3: LOAD CLASSIFICATION & TACTILE CAPACITOR BANK CONTROLS -->
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
-        <!-- Column A: Load Type Detection -->
-        <div class="p-5 sm:p-6 rounded-2xl bg-slate-800/90 border border-slate-700 shadow-md flex flex-col justify-between">
+        <!-- Column A: Load Classification -->
+        <div class="neu-flat p-6 rounded-3xl flex flex-col justify-between">
           <div>
-            <div class="flex items-center justify-between pb-3 border-b border-slate-700/80">
-              <div class="flex items-center gap-2">
-                <i data-lucide="cpu" class="w-5 h-5 text-indigo-400"></i>
-                <h3 class="text-base font-bold text-white">Load Classification</h3>
+            <div class="flex items-center justify-between pb-3.5 border-b border-[var(--neu-border)]">
+              <div class="flex items-center gap-2.5">
+                <div class="neu-btn p-2 rounded-xl text-indigo-400">
+                  <i data-lucide="cpu" class="w-5 h-5"></i>
+                </div>
+                <h3 class="text-base font-bold">Electrical Load Classification</h3>
               </div>
-              <span id="load-confidence" class="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+              <span id="load-confidence" class="neu-pressed px-3 py-1 rounded-full text-xs font-bold text-emerald-400">
                 High Confidence
               </span>
             </div>
 
-            <!-- Classified Load Display -->
-            <div class="my-5 p-4 rounded-xl bg-slate-900/70 border border-slate-700/80 flex items-start gap-4">
-              <div id="load-icon-box" class="p-3 rounded-xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/30 flex-shrink-0">
-                <i id="load-icon" data-lucide="cog" class="w-8 h-8"></i>
+            <div class="my-5 neu-pressed-deep p-5 rounded-2xl flex items-start gap-4">
+              <div id="load-icon-box" class="neu-btn p-3.5 rounded-2xl text-indigo-400 flex-shrink-0">
+                <i id="load-icon" data-lucide="check-circle" class="w-8 h-8"></i>
               </div>
               <div class="flex-1">
-                <h4 id="load-title" class="text-lg font-bold text-white leading-tight">Inductive Load</h4>
-                <p id="load-desc" class="text-xs text-slate-300 mt-1 leading-relaxed">
-                  Motor, transformer, compressor, or ballast. Inductive windings causing current to lag behind line voltage.
+                <h4 id="load-title" class="text-base font-bold leading-tight">Standby / Ideal Load</h4>
+                <p id="load-desc" class="text-xs text-[var(--neu-text-muted)] mt-1.5 leading-relaxed">
+                  No significant inductive reactive load detected. Power factor sits at ideal unity.
                 </p>
-                <div class="mt-3 flex items-center gap-2 text-[11px] text-slate-400 font-mono">
-                  <span>Evaluated from Uncompensated PF:</span>
-                  <span id="load-eval-pf" class="text-white font-bold">0.76 (Lagging)</span>
+                <div class="mt-3.5 flex items-center gap-2 text-xs font-mono">
+                  <span class="text-[var(--neu-text-muted)]">Evaluated Baseline PF:</span>
+                  <span id="load-eval-pf" class="font-bold text-teal-400">1.00 (Ideal)</span>
                 </div>
               </div>
             </div>
           </div>
 
-          <!-- Explanatory Tooltip Box -->
-          <div class="p-3.5 rounded-xl bg-slate-900/40 border border-slate-700/50 text-xs text-slate-400">
-            <div class="flex items-start gap-2">
+          <div class="neu-pressed p-3.5 rounded-2xl text-xs text-[var(--neu-text-muted)]">
+            <div class="flex items-start gap-2.5">
               <i data-lucide="help-circle" class="w-4 h-4 text-teal-400 flex-shrink-0 mt-0.5"></i>
-              <div>
-                <strong class="text-slate-200">How this is determined:</strong>
-                <p class="mt-0.5 text-[11px] leading-relaxed" id="load-how">
-                  Classification is computed exclusively from the pre-correction baseline power factor and phase delay angle, ensuring capacitor compensation does not distort the electrical load fingerprint.
-                </p>
-              </div>
+              <p class="text-[11px] leading-relaxed">
+                Load fingerprinting is computed exclusively from the <strong>pre-correction uncompensated baseline</strong> so capacitor steps never deceive the classifier.
+              </p>
             </div>
           </div>
         </div>
 
-        <!-- Column B: Manual Control Panel -->
-        <div class="p-5 sm:p-6 rounded-2xl bg-slate-800/90 border border-slate-700 shadow-md relative overflow-hidden flex flex-col justify-between">
+        <!-- Column B: Tactile Neumorphic Capacitor Controls -->
+        <div class="neu-flat p-6 rounded-3xl relative overflow-hidden flex flex-col justify-between">
           
-          <!-- PIN Lock Overlay (Active when locked) -->
-          <div id="pin-overlay" class="absolute inset-0 bg-slate-900/95 backdrop-blur-sm z-20 flex flex-col items-center justify-center p-6 text-center">
-            <div class="p-3 rounded-2xl bg-teal-500/10 text-teal-400 border border-teal-500/30 mb-3">
+          <!-- Mains Hardware Safety Lock PIN Overlay -->
+          <div id="pin-overlay" class="absolute inset-0 bg-[var(--neu-bg)]/95 backdrop-blur-md z-20 flex flex-col items-center justify-center p-6 text-center">
+            <div class="neu-btn p-3.5 rounded-2xl text-teal-400 mb-3">
               <i data-lucide="lock" class="w-8 h-8"></i>
             </div>
-            <h4 class="text-base font-bold text-white">Mains Hardware Safety Lock</h4>
-            <p class="text-xs text-slate-400 max-w-xs mt-1 mb-4">
-              Enter 4-digit PIN to enable manual capacitor switching. (Default PIN: <strong class="text-teal-300">1234</strong>)
+            <h4 class="text-base font-bold">Mains Hardware Safety Lock</h4>
+            <p class="text-xs text-[var(--neu-text-muted)] max-w-xs mt-1 mb-4">
+              Enter 4-digit PIN to enable manual capacitor switching. (Default PIN: <strong class="text-teal-400">1234</strong>)
             </p>
-            <div class="flex items-center gap-2 mb-4">
-              <input type="password" id="pin-input" maxlength="4" placeholder="••••" class="w-28 text-center tracking-widest text-lg font-mono px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-white focus:outline-none focus:border-teal-500">
-              <button onclick="unlockPin()" class="px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-500 text-white font-semibold text-xs transition-colors">
+            <div class="flex items-center gap-2.5 mb-3">
+              <input type="password" id="pin-input" maxlength="4" placeholder="••••" class="neu-pressed w-28 text-center tracking-widest text-lg font-mono px-3.5 py-2.5 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500">
+              <button onclick="unlockPin()" class="neu-btn px-4.5 py-2.5 text-xs font-bold text-teal-400">
                 Unlock
               </button>
             </div>
-            <p id="pin-error" class="text-xs text-rose-400 font-medium hidden">Incorrect PIN. 3 attempts remaining.</p>
+            <p id="pin-error" class="text-xs text-rose-400 font-semibold hidden">Incorrect PIN. Try again.</p>
           </div>
 
           <!-- Unlocked Controls Header -->
           <div>
-            <div class="flex items-center justify-between pb-3 border-b border-slate-700/80">
+            <div class="flex items-center justify-between pb-3.5 border-b border-[var(--neu-border)]">
               <div class="flex items-center gap-2">
                 <i data-lucide="sliders" class="w-5 h-5 text-teal-400"></i>
-                <h3 class="text-base font-bold text-white">Capacitor Bank Control</h3>
+                <h3 class="text-base font-bold">Capacitor Bank Controls</h3>
               </div>
               
-              <!-- Mode Toggle Button (Auto vs Manual) -->
-              <div class="flex items-center gap-2">
-                <button id="btn-mode-auto" onclick="setControlMode('auto')" class="px-3 py-1 rounded-lg text-xs font-bold transition-all bg-teal-600 text-white shadow-sm">
+              <!-- Mode Toggle Buttons -->
+              <div class="neu-pressed p-1 rounded-xl flex items-center gap-1">
+                <button id="btn-mode-auto" onclick="setControlMode('auto')" class="neu-btn px-3 py-1.5 rounded-lg text-xs font-bold text-teal-400 active">
                   AUTO (ESP32)
                 </button>
-                <button id="btn-mode-manual" onclick="setControlMode('manual')" class="px-3 py-1 rounded-lg text-xs font-bold transition-all bg-slate-700 text-slate-300 hover:text-white">
+                <button id="btn-mode-manual" onclick="setControlMode('manual')" class="neu-btn px-3 py-1.5 rounded-lg text-xs font-bold text-[var(--neu-text-muted)]">
                   MANUAL
                 </button>
-                <button onclick="lockPin()" class="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700 ml-1" title="Lock Controls">
-                  <i data-lucide="lock" class="w-4 h-4"></i>
+                <button onclick="lockPin()" class="neu-btn p-1.5 rounded-lg text-[var(--neu-text-muted)] hover:text-rose-400 ml-1" title="Lock Controls">
+                  <i data-lucide="lock" class="w-3.5 h-3.5"></i>
                 </button>
               </div>
             </div>
 
-            <!-- Mode Notice Banner -->
-            <div id="mode-notice" class="my-3 p-2.5 rounded-xl bg-slate-900/60 border border-slate-700/60 flex items-center justify-between text-xs text-slate-300">
+            <!-- Mode Banner -->
+            <div id="mode-notice" class="my-3 neu-pressed p-3 rounded-xl flex items-center justify-between text-xs">
               <div class="flex items-center gap-2">
-                <i data-lucide="info" class="w-4 h-4 text-sky-400"></i>
-                <span id="mode-notice-text">ESP32 is dynamically selecting optimal capacitor steps to target 0.98 PF.</span>
+                <i data-lucide="info" class="w-4 h-4 text-teal-400"></i>
+                <span id="mode-notice-text">ESP32 is dynamically adjusting capacitor bank to maintain PF near 1.00.</span>
               </div>
-              <span id="mode-badge" class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-teal-500/20 text-teal-300">
+              <span id="mode-badge" class="neu-btn px-2.5 py-0.5 rounded text-[10px] font-bold text-teal-400">
                 AUTO
               </span>
             </div>
 
-            <!-- 7 Capacitor Switches Grid -->
-            <div class="grid grid-cols-4 sm:grid-cols-7 gap-2 my-4" id="cap-switches-container">
-              <!-- Dynamically rendered 7 switches -->
+            <!-- 7 Tactile Neumorphic Capacitor Push Buttons Grid -->
+            <div class="grid grid-cols-4 sm:grid-cols-7 gap-2.5 my-4" id="cap-switches-container">
+              <!-- Dynamically populated 7 switches -->
             </div>
 
-            <!-- Predictive Change Indicator -->
-            <div id="predict-box" class="p-3 rounded-xl bg-slate-900/70 border border-slate-700/70 flex items-center justify-between text-xs">
+            <!-- Predictive safety result -->
+            <div id="predict-box" class="neu-pressed p-3 rounded-xl flex items-center justify-between text-xs">
               <div class="flex items-center gap-2">
-                <span class="text-slate-400">Predicted Result:</span>
-                <span id="predict-pf" class="font-mono font-bold text-emerald-400">0.98 PF</span>
-                <span id="predict-q" class="text-slate-400 font-mono">(Q: 52 VAR)</span>
+                <span class="text-[var(--neu-text-muted)]">Predicted:</span>
+                <span id="predict-pf" class="font-mono font-bold text-emerald-400">0.99 PF</span>
+                <span id="predict-q" class="text-[var(--neu-text-muted)] font-mono">(Q: 14 VAR)</span>
               </div>
-              <span id="predict-safety" class="text-[11px] font-semibold text-emerald-400">Safe (Lagging)</span>
+              <span id="predict-safety" class="text-[11px] font-bold text-emerald-400">Safe (No Overcorrection)</span>
             </div>
           </div>
 
-          <!-- Bottom Action Bar: All Off & Total uF -->
-          <div class="pt-4 mt-2 border-t border-slate-700/80 flex items-center justify-between">
-            <button id="btn-all-off" onclick="handleAllOff()" class="px-3.5 py-1.5 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 text-xs font-semibold transition-colors flex items-center gap-1.5">
+          <!-- Bottom Actions: All Off & Total uF -->
+          <div class="pt-4 mt-2 border-t border-[var(--neu-border)] flex items-center justify-between">
+            <button id="btn-all-off" onclick="handleAllOff()" class="neu-btn px-4 py-2 text-rose-400 text-xs font-bold flex items-center gap-1.5">
               <i data-lucide="power" class="w-3.5 h-3.5"></i> All Off
             </button>
-            <div class="text-xs text-slate-300 font-mono">
-              Running Total: <strong id="manual-total-c" class="text-white">0.0 µF</strong> / 22 µF
+            <div class="neu-pressed px-3.5 py-1.5 rounded-xl text-xs font-mono">
+              Total Engaged: <strong id="manual-total-c" class="text-teal-400 font-bold">0.0 µF</strong> / 22 µF
             </div>
           </div>
         </div>
@@ -509,63 +647,62 @@
     </div>
 
     <!-- ======================================================================= -->
-    <!-- TAB 2: TELEMETRY & CHARTS -->
+    <!-- TAB 2: TELEMETRY & CHARTS                                               -->
     <!-- ======================================================================= -->
     <div id="tab-charts" class="space-y-6 hidden">
       
-      <!-- Top Chart Controls -->
-      <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 rounded-xl bg-slate-800/80 border border-slate-700">
-        <div class="flex items-center gap-2">
-          <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Time Window:</span>
-          <div class="flex bg-slate-900 p-1 rounded-lg border border-slate-700 text-xs">
-            <button onclick="setTimeWindow(5)" id="btn-tw-5" class="px-3 py-1 rounded font-semibold text-teal-400 bg-slate-800">5 Min</button>
-            <button onclick="setTimeWindow(60)" id="btn-tw-60" class="px-3 py-1 rounded font-semibold text-slate-400 hover:text-white">1 Hour</button>
-            <button onclick="setTimeWindow(1440)" id="btn-tw-1440" class="px-3 py-1 rounded font-semibold text-slate-400 hover:text-white">24 Hours</button>
+      <div class="neu-flat p-4.5 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div class="flex items-center gap-3">
+          <span class="text-xs font-bold uppercase tracking-wider text-[var(--neu-text-muted)]">Time Window:</span>
+          <div class="neu-pressed p-1 rounded-xl flex gap-1 text-xs">
+            <button onclick="setTimeWindow(5)" id="btn-tw-5" class="neu-btn px-3 py-1 rounded-lg font-bold text-teal-400 active">5 Min</button>
+            <button onclick="setTimeWindow(60)" id="btn-tw-60" class="neu-btn px-3 py-1 rounded-lg font-bold text-[var(--neu-text-muted)]">1 Hour</button>
+            <button onclick="setTimeWindow(1440)" id="btn-tw-1440" class="neu-btn px-3 py-1 rounded-lg font-bold text-[var(--neu-text-muted)]">24 Hours</button>
           </div>
         </div>
 
-        <button onclick="downloadCSV()" class="flex items-center gap-2 px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-500 text-white font-semibold text-xs shadow-sm transition-colors">
+        <button onclick="downloadCSV()" class="neu-btn flex items-center gap-2 px-4 py-2 text-teal-400 text-xs font-bold">
           <i data-lucide="download" class="w-4 h-4"></i> Export Telemetry CSV
         </button>
       </div>
 
-      <!-- Chart 1: Voltage & Current (Dual Axis) -->
-      <div class="p-5 rounded-2xl bg-slate-800/90 border border-slate-700 shadow-sm">
-        <h3 class="text-sm font-bold text-white mb-3 flex items-center gap-2">
-          <i data-lucide="activity" class="w-4 h-4 text-amber-400"></i> Voltage (V) &amp; Current (A) Dynamics
+      <!-- Chart 1: Voltage & Current -->
+      <div class="neu-flat p-5.5 rounded-3xl">
+        <h3 class="text-sm font-bold mb-3 flex items-center gap-2">
+          <i data-lucide="activity" class="w-4 h-4 text-amber-400"></i> Voltage (V) &amp; Current (A) Live Waveforms
         </h3>
-        <div class="h-64 w-full">
+        <div class="neu-pressed p-3 rounded-2xl h-64 w-full">
           <canvas id="chart-vi"></canvas>
         </div>
       </div>
 
-      <!-- Chart 2: Active (P), Reactive (Q), Apparent (S) Power -->
-      <div class="p-5 rounded-2xl bg-slate-800/90 border border-slate-700 shadow-sm">
-        <h3 class="text-sm font-bold text-white mb-3 flex items-center gap-2">
+      <!-- Chart 2: Active, Reactive, Apparent Power -->
+      <div class="neu-flat p-5.5 rounded-3xl">
+        <h3 class="text-sm font-bold mb-3 flex items-center gap-2">
           <i data-lucide="bar-chart-2" class="w-4 h-4 text-emerald-400"></i> Power Triangle Dynamics (P: Watts, Q: VAR, S: VA)
         </h3>
-        <div class="h-64 w-full">
+        <div class="neu-pressed p-3 rounded-2xl h-64 w-full">
           <canvas id="chart-pqs"></canvas>
         </div>
       </div>
 
-      <!-- Chart 3: Power Factor (Before vs After with 0.98 Target Line) -->
-      <div class="p-5 rounded-2xl bg-slate-800/90 border border-slate-700 shadow-sm">
-        <h3 class="text-sm font-bold text-white mb-3 flex items-center gap-2">
-          <i data-lucide="target" class="w-4 h-4 text-teal-400"></i> Power Factor: Baseline Before vs Compensated After (0.98 Target)
+      <!-- Chart 3: Power Factor (Target ~1.00) -->
+      <div class="neu-flat p-5.5 rounded-3xl">
+        <h3 class="text-sm font-bold mb-3 flex items-center gap-2">
+          <i data-lucide="target" class="w-4 h-4 text-teal-400"></i> Power Factor: Baseline Before vs Compensated After (Target 0.99)
         </h3>
-        <div class="h-64 w-full">
+        <div class="neu-pressed p-3 rounded-2xl h-64 w-full">
           <canvas id="chart-pf"></canvas>
         </div>
       </div>
 
-      <!-- Capacitor Engagement Timeline Strip -->
-      <div class="p-5 rounded-2xl bg-slate-800/90 border border-slate-700 shadow-sm">
-        <h3 class="text-sm font-bold text-white mb-3 flex items-center gap-2">
+      <!-- Timeline activity -->
+      <div class="neu-flat p-5.5 rounded-3xl">
+        <h3 class="text-sm font-bold mb-3 flex items-center gap-2">
           <i data-lucide="history" class="w-4 h-4 text-indigo-400"></i> Capacitor Stage Engagement Timeline (C1 to C7)
         </h3>
-        <div id="timeline-strip" class="space-y-1.5 font-mono text-xs">
-          <!-- Dynamically populated 7 capacitor step activity tracks -->
+        <div id="timeline-strip" class="space-y-2 font-mono text-xs">
+          <!-- Dynamically populated 7 capacitor step tracks -->
         </div>
       </div>
 
@@ -574,171 +711,120 @@
   </main>
 
   <!-- ========================================================================= -->
-  <!-- Footer -->
+  <!-- Footer                                                                    -->
   <!-- ========================================================================= -->
-  <footer class="mt-auto border-t border-slate-800 py-4 text-center text-xs text-slate-500">
-    ESP32 Smart Power Monitor &bull; Dual MQTT WebSocket &amp; REST Fallback Engine &bull; Pure Browser Client
+  <footer class="mt-auto border-t border-[var(--neu-border)] py-5 text-center text-xs text-[var(--neu-text-muted)]">
+    ESP32 Smart Power Monitor &bull; Neumorphic APFC Cloud Dashboard &bull; EMQX Real-Time Stream
   </footer>
 
   <!-- ========================================================================= -->
-  <!-- MODAL: SETTINGS & IOT AUTO-PROVISION -->
+  <!-- MODAL: SETTINGS & IOT AUTO-PROVISION                                     -->
   <!-- ========================================================================= -->
-  <div id="settings-modal" onclick="if(event.target === this) closeSettingsModal()" class="hidden fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-    <div class="bg-slate-900 border border-slate-700 w-full max-w-xl rounded-2xl p-6 shadow-2xl space-y-5 max-h-[90vh] overflow-y-auto">
+  <div id="settings-modal" onclick="if(event.target === this) closeSettingsModal()" class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-md flex items-center justify-center p-4">
+    <div class="neu-flat w-full max-w-xl p-6 rounded-3xl space-y-5 max-h-[90vh] overflow-y-auto">
       
-      <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+      <div class="flex items-center justify-between pb-3 border-b border-[var(--neu-border)]">
         <div class="flex items-center gap-2">
           <i data-lucide="sliders" class="w-5 h-5 text-teal-400"></i>
-          <h3 class="text-base font-bold text-white">System Settings &amp; Adafruit IO Setup</h3>
+          <h3 class="text-base font-bold">IoT Configuration &amp; Cloud Broker</h3>
         </div>
-        <button onclick="closeSettingsModal()" class="text-slate-400 hover:text-white">
-          <i data-lucide="x" class="w-5 h-5"></i>
+        <button onclick="closeSettingsModal()" class="neu-btn p-2 rounded-xl text-[var(--neu-text-muted)] hover:text-white">
+          <i data-lucide="x" class="w-4 h-4"></i>
         </button>
       </div>
 
       <!-- Demo Mode Toggle -->
-      <div class="p-3.5 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-between">
+      <div class="neu-pressed p-4 rounded-2xl flex items-center justify-between">
         <div>
-          <span class="text-sm font-bold text-indigo-300">Simulation / Demo Mode</span>
-          <p class="text-xs text-slate-400">Simulate realistic motors, loads, and automatic APFC switching without hardware.</p>
+          <span class="text-sm font-bold">Demo Simulation Mode</span>
+          <p class="text-xs text-[var(--neu-text-muted)] mt-0.5">Simulate dynamic inductive loads &amp; APFC algorithm without ESP32</p>
         </div>
-        <label class="relative inline-flex items-center cursor-pointer">
-          <input type="checkbox" id="cfg-demo-mode" class="sr-only peer" onchange="toggleDemoMode(this.checked)">
-          <div class="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-600"></div>
-        </label>
+        <button id="btn-toggle-demo" onclick="toggleDemoMode()" class="neu-btn px-4 py-2 rounded-xl text-xs font-bold text-teal-400">
+          Enabled
+        </button>
       </div>
 
-      <!-- EMQX Cloud MQTT Connection -->
-      <div class="space-y-3">
+      <!-- EMQX Connection Info -->
+      <div class="neu-pressed p-4 rounded-2xl space-y-3">
         <div class="flex items-center justify-between">
-          <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400">EMQX Cloud Broker (High-Speed &amp; Zero Limits)</h4>
-          <span class="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">Free &bull; Unthrottled</span>
+          <span class="text-sm font-bold">MQTT Broker (EMQX Cloud)</span>
+          <span class="text-xs font-bold text-emerald-400">broker.emqx.io</span>
         </div>
-        
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div>
-            <label class="block text-xs text-slate-300 font-medium mb-1">MQTT Broker (WebSocket)</label>
-            <input type="text" id="cfg-broker-host" value="broker.emqx.io" readonly class="w-full px-3.5 py-2 rounded-xl bg-slate-800/60 border border-slate-700 text-slate-400 text-xs font-mono focus:outline-none">
-          </div>
-          <div>
-            <label class="block text-xs text-slate-300 font-medium mb-1">WebSocket Port</label>
-            <input type="text" id="cfg-broker-port" value="8084 (TLS / WSS)" readonly class="w-full px-3.5 py-2 rounded-xl bg-slate-800/60 border border-slate-700 text-slate-400 text-xs font-mono focus:outline-none">
-          </div>
-        </div>
-
         <div>
-          <label class="block text-xs text-slate-300 font-medium mb-1">Device ID / MQTT Topic Prefix</label>
-          <input type="text" id="cfg-topic-prefix" value="apfc_monitor_abhi90" placeholder="e.g. apfc_monitor_abhi90" class="w-full px-3.5 py-2 rounded-xl bg-slate-800 border border-slate-700 text-white text-xs font-mono focus:outline-none focus:border-teal-500">
-          <p class="text-[11px] text-slate-400 mt-1">Must match <code class="text-teal-300 font-mono">MQTT_TOPIC_PREFIX</code> in your ESP32 <code class="text-teal-300 font-mono">config.h</code>.</p>
-        </div>
-
-        <div class="p-3 rounded-xl bg-teal-950/20 border border-teal-800/30 text-xs text-slate-300 flex items-start gap-2">
-          <i data-lucide="check-circle" class="w-4 h-4 text-teal-400 flex-shrink-0 mt-0.5"></i>
-          <div>
-            <strong class="text-teal-300">Instant Response:</strong> Connected to EMQX Cloud Broker on port 8084. Telemetry streams every 1s and manual capacitor switches respond in under 50ms without timeout warnings.
-          </div>
+          <label class="block text-xs font-bold text-[var(--neu-text-muted)] mb-1">MQTT Topic Prefix</label>
+          <input type="text" id="cfg-topic-prefix" value="apfc_monitor_abhi90" class="neu-flat w-full px-3.5 py-2 text-xs font-mono rounded-xl focus:outline-none">
         </div>
       </div>
 
-      <!-- Electrical Constants -->
-      <div class="space-y-3 pt-2 border-t border-slate-800">
-        <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400">Electrical Parameters</h4>
-        <div class="grid grid-cols-3 gap-3">
-          <div>
-            <label class="block text-[11px] text-slate-400 mb-1">Nominal V (RMS)</label>
-            <input type="number" id="cfg-voltage" value="230" class="w-full px-3 py-1.5 rounded-lg bg-slate-800 border border-slate-700 text-white text-xs font-mono">
-          </div>
-          <div>
-            <label class="block text-[11px] text-slate-400 mb-1">Grid Freq (Hz)</label>
-            <input type="number" id="cfg-freq" value="50" class="w-full px-3 py-1.5 rounded-lg bg-slate-800 border border-slate-700 text-white text-xs font-mono">
-          </div>
-          <div>
-            <label class="block text-[11px] text-slate-400 mb-1">Target PF</label>
-            <input type="number" step="0.01" id="cfg-pf-target" value="0.98" class="w-full px-3 py-1.5 rounded-lg bg-slate-800 border border-slate-700 text-white text-xs font-mono">
-          </div>
+      <!-- Security PIN Config -->
+      <div class="neu-pressed p-4 rounded-2xl space-y-3">
+        <span class="text-sm font-bold">Hardware Safety PIN</span>
+        <div class="flex items-center gap-3">
+          <input type="password" id="cfg-pin" maxlength="4" value="1234" class="neu-flat w-28 px-3.5 py-2 text-center text-xs font-mono rounded-xl focus:outline-none">
+          <span class="text-xs text-[var(--neu-text-muted)]">Protects manual capacitor relays from accidental clicks</span>
         </div>
       </div>
 
-      <!-- Action Buttons -->
-      <div class="pt-3 border-t border-slate-800 flex justify-end gap-3">
-        <button onclick="closeSettingsModal()" class="px-4 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-white">
+      <!-- Modal Footer -->
+      <div class="flex items-center justify-end gap-3 pt-3 border-t border-[var(--neu-border)]">
+        <button onclick="closeSettingsModal()" class="neu-btn px-4 py-2 text-xs font-bold text-[var(--neu-text-muted)]">
           Cancel
         </button>
-        <button onclick="saveSettings()" class="px-5 py-2 rounded-xl text-xs font-bold bg-teal-600 hover:bg-teal-500 text-white transition-colors">
+        <button onclick="saveSettings()" class="neu-btn px-5 py-2 text-xs font-bold text-teal-400">
           Save &amp; Connect
         </button>
       </div>
+
     </div>
   </div>
 
-  <!-- Confirmation Modal for Leading PF / All Off -->
-  <div id="confirm-modal" class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-    <div class="bg-slate-900 border border-slate-700 w-full max-w-sm rounded-2xl p-6 shadow-2xl space-y-4">
-      <div class="p-3 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/30 w-fit">
-        <i data-lucide="alert-triangle" class="w-6 h-6"></i>
-      </div>
-      <div>
-        <h4 id="confirm-title" class="text-base font-bold text-white">Confirmation Required</h4>
-        <p id="confirm-desc" class="text-xs text-slate-300 mt-1 leading-relaxed">
-          Are you sure you want to proceed?
-        </p>
-      </div>
-      <div class="flex justify-end gap-2 pt-2">
-        <button onclick="closeConfirmModal(false)" class="px-4 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-white">
-          Cancel
-        </button>
-        <button onclick="closeConfirmModal(true)" id="confirm-btn-yes" class="px-4 py-2 rounded-xl text-xs font-bold bg-teal-600 hover:bg-teal-500 text-white">
-          Confirm
-        </button>
+  <!-- Confirmation Modal -->
+  <div id="confirm-modal" class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-md flex items-center justify-center p-4">
+    <div class="neu-flat w-full max-w-md p-6 rounded-3xl space-y-4">
+      <h4 id="confirm-title" class="text-base font-bold">Confirmation Required</h4>
+      <p id="confirm-desc" class="text-xs text-[var(--neu-text-muted)] leading-relaxed">Are you sure?</p>
+      <div class="flex justify-end gap-2.5 pt-2">
+        <button onclick="closeConfirmModal(false)" class="neu-btn px-4 py-2 text-xs font-bold text-[var(--neu-text-muted)]">Cancel</button>
+        <button onclick="closeConfirmModal(true)" id="confirm-btn-yes" class="neu-btn px-4 py-2 text-xs font-bold text-teal-400">Confirm</button>
       </div>
     </div>
   </div>
 
-  <!-- Floating Toast Notification -->
-  <div id="toast" class="fixed bottom-5 right-5 z-50 transform translate-y-20 opacity-0 transition-all duration-300 pointer-events-none px-4 py-3 rounded-xl bg-slate-800 border border-slate-700 text-white text-xs shadow-xl flex items-center gap-2">
+  <!-- Toast Notification -->
+  <div id="toast" class="fixed bottom-6 right-6 z-50 transform translate-y-20 opacity-0 transition-all duration-300 pointer-events-none neu-flat px-4.5 py-3 rounded-2xl text-xs font-bold shadow-2xl flex items-center gap-2.5">
     <i data-lucide="check-circle" class="w-4 h-4 text-teal-400"></i>
     <span id="toast-msg">Settings saved</span>
   </div>
 
   <!-- ========================================================================= -->
-  <!-- Core JavaScript Application Logic -->
+  <!-- JavaScript Application Logic                                              -->
   <!-- ========================================================================= -->
   <script>
-    // ---------------------------------------------------------------------------
-    // Configuration & State Management
-    // ---------------------------------------------------------------------------
     const CAP_STEPS = [1, 2, 3, 4, 5, 6, 15]; // µF
-    const ALL_FEEDS = [
-      'voltage', 'current', 'realpower', 'powerfactor',
-      'reactivepower', 'apparentpower', 'pf-before', 'pf-after',
-      'load-mode', 'cap-state', 'cap-command', 'pf-sign'
-    ];
 
     let state = {
       connected: false,
-      isDemo: true,
+      isDemo: false,
       lastUpdated: null,
       controlUnlocked: false,
       pin: localStorage.getItem('spm_pin') || '1234',
       pinAttempts: 3,
       
-      // Live electrical data
       data: {
         voltage: 230.0,
-        current: 3.12,
-        realPower: 544.2,
-        reactivePower: 480.1,
-        apparentPower: 716.1,
-        powerFactor: 0.76,
-        pfBefore: 0.76,
-        pfAfter: 0.98,
+        current: 0.0,
+        realPower: 0.0,
+        reactivePower: 0.0,
+        apparentPower: 0.0,
+        powerFactor: 1.0,
+        pfBefore: 1.0,
+        pfAfter: 1.0,
         loadMode: 'auto',
-        capState: 0b0100011, // 15 + 2 + 1 = 18 uF
+        capState: 0,
         pfSign: 'lag',
         freq: 50.0
       },
 
-      // History time series buffer
       history: {
         timestamps: [],
         v: [],
@@ -756,155 +842,79 @@
     };
 
     let mqttClient = null;
-    let restPollingTimer = null;
     let demoSimTimer = null;
-    let charts = {};
-    let confirmCallback = null;
+    let chartVI = null;
+    let chartPQS = null;
+    let chartPF = null;
+    let pendingConfirmAction = null;
 
     // ---------------------------------------------------------------------------
-    // Initialization on Page Load
+    // Initialization
     // ---------------------------------------------------------------------------
     window.addEventListener('DOMContentLoaded', () => {
       lucide.createIcons();
-      initSettings();
-      renderCapSwitches();
+      initTheme();
       initCharts();
-      renderTimeline();
+      renderCapSwitches();
+      renderAll();
 
-      // Check URL params or localStorage for demo mode
-      const savedDemo = localStorage.getItem('spm_demo');
-      state.isDemo = (savedDemo === null) ? true : (savedDemo === 'true');
-      document.getElementById('cfg-demo-mode').checked = state.isDemo;
-
-      if (state.isDemo) {
+      const savedDemo = localStorage.getItem('spm_demo_mode');
+      if (savedDemo === 'true') {
         startDemoSimulation();
       } else {
         connectTransport();
       }
 
-      // Update "time ago" loop
-      setInterval(updateTimeAgoDisplay, 1000);
+      // Age update timer (updates "Last updated: Xs ago")
+      setInterval(() => {
+        const ageEl = document.getElementById('reading-age');
+        if (!state.lastUpdated) {
+          ageEl.textContent = 'Last update: never';
+        } else {
+          const diff = Math.floor((Date.now() - state.lastUpdated) / 1000);
+          ageEl.textContent = `Last update: ${diff}s ago`;
+          
+          const delayedBadge = document.getElementById('delayed-badge');
+          if (diff > 5 && state.connected) {
+            delayedBadge.classList.remove('hidden');
+            delayedBadge.classList.add('flex');
+            document.getElementById('delayed-secs').textContent = diff;
+          } else {
+            delayedBadge.classList.add('hidden');
+            delayedBadge.classList.remove('flex');
+          }
+        }
+      }, 1000);
     });
 
     // ---------------------------------------------------------------------------
-    // UI Tab Navigation
+    // Theme Management (Neumorphic Dark / Light Toggle)
     // ---------------------------------------------------------------------------
-    function switchTab(tab) {
-      const isDash = tab === 'dashboard';
-      document.getElementById('tab-dashboard').classList.toggle('hidden', !isDash);
-      document.getElementById('tab-charts').classList.toggle('hidden', isDash);
-
-      const btnDash = document.getElementById('tab-btn-dashboard');
-      const btnCharts = document.getElementById('tab-btn-charts');
-
-      if (isDash) {
-        btnDash.className = "flex items-center gap-2 px-4 py-2.5 text-xs font-semibold border-b-2 border-teal-500 text-teal-400 transition-all";
-        btnCharts.className = "flex items-center gap-2 px-4 py-2.5 text-xs font-semibold border-b-2 border-transparent text-slate-400 hover:text-slate-200 transition-all";
+    function initTheme() {
+      const savedTheme = localStorage.getItem('spm_theme') || 'dark';
+      if (savedTheme === 'light') {
+        document.documentElement.classList.remove('dark');
       } else {
-        btnDash.className = "flex items-center gap-2 px-4 py-2.5 text-xs font-semibold border-b-2 border-transparent text-slate-400 hover:text-slate-200 transition-all";
-        btnCharts.className = "flex items-center gap-2 px-4 py-2.5 text-xs font-semibold border-b-2 border-teal-500 text-teal-400 transition-all";
-        updateAllCharts();
-      }
-      lucide.createIcons();
-    }
-
-    // ---------------------------------------------------------------------------
-    // Settings Management
-    // ---------------------------------------------------------------------------
-    function initSettings() {
-      const tInput = document.getElementById('cfg-topic-prefix');
-      const vInput = document.getElementById('cfg-voltage');
-      const fInput = document.getElementById('cfg-freq');
-      const pfInput = document.getElementById('cfg-pf-target');
-
-      if (tInput) tInput.value = localStorage.getItem('spm_topic_prefix') || 'apfc_monitor_abhi90';
-      if (vInput) vInput.value = localStorage.getItem('spm_voltage') || '230';
-      if (fInput) fInput.value = localStorage.getItem('spm_freq') || '50';
-      if (pfInput) pfInput.value = localStorage.getItem('spm_target_pf') || '0.98';
-    }
-
-    function openSettingsModal() {
-      initSettings();
-      const modal = document.getElementById('settings-modal');
-      if (modal) {
-        modal.classList.remove('hidden');
-      }
-      if (window.lucide) {
-        try { lucide.createIcons(); } catch(e){}
-      }
-    }
-
-    function closeSettingsModal() {
-      const modal = document.getElementById('settings-modal');
-      if (modal) {
-        modal.classList.add('hidden');
+        document.documentElement.classList.add('dark');
       }
     }
 
     function toggleTheme() {
       const isDark = document.documentElement.classList.toggle('dark');
       localStorage.setItem('spm_theme', isDark ? 'dark' : 'light');
-      if (window.lucide) {
-        try { lucide.createIcons(); } catch(e){}
-      }
-    }
-
-    // Close modal on Escape key
-    window.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') {
-        closeSettingsModal();
-        closeConfirmModal(false);
-      }
-    });
-
-    function saveSettings() {
-      const topicPrefix = (document.getElementById('cfg-topic-prefix')?.value || 'apfc_monitor_abhi90').trim();
-      const v = (document.getElementById('cfg-voltage')?.value || '').trim();
-      const f = (document.getElementById('cfg-freq')?.value || '').trim();
-      const pf = (document.getElementById('cfg-pf-target')?.value || '').trim();
-
-      localStorage.setItem('spm_topic_prefix', topicPrefix);
-      localStorage.setItem('spm_voltage', v);
-      localStorage.setItem('spm_freq', f);
-      localStorage.setItem('spm_target_pf', pf);
-
-      showToast('Settings saved successfully!');
-      closeSettingsModal();
-
-      if (!state.isDemo) {
-        connectTransport();
-      }
-    }
-
-    function toggleDemoMode(enable) {
-      state.isDemo = enable;
-      localStorage.setItem('spm_demo', enable);
-      const badge = document.getElementById('badge-demo');
-      if (badge) badge.classList.toggle('hidden', !enable);
-
-      if (enable) {
-        disconnectTransport();
-        startDemoSimulation();
-        showToast('Switched to Demo Simulation Mode');
-      } else {
-        stopDemoSimulation();
-        connectTransport();
-        showToast('Connecting to HiveMQ Cloud...');
-      }
+      updateChartsTheme();
     }
 
     // ---------------------------------------------------------------------------
-    // High-Speed EMQX MQTT Transport Engine (Browser-Native WebSocket)
+    // MQTT Transport Engine (EMQX Cloud WSS Broker)
     // ---------------------------------------------------------------------------
     function connectTransport() {
       disconnectTransport();
 
       const topicPrefix = localStorage.getItem('spm_topic_prefix') || 'apfc_monitor_abhi90';
-
       setConnectionState(false, 'Connecting to EMQX...');
 
       try {
-        // High-speed EMQX public broker with WSS (TLS WebSocket on port 8084)
         const brokerUrl = 'wss://broker.emqx.io:8084/mqtt';
         const clientId = 'web_spm_' + Math.random().toString(16).substring(2, 10);
 
@@ -920,7 +930,6 @@
           document.getElementById('offline-alert').classList.add('hidden');
           showToast('Connected to EMQX Cloud');
 
-          // Subscribe to all feeds under our topic prefix
           mqttClient.subscribe(`${topicPrefix}/#`, (err) => {
             if (err) console.error('Subscription error:', err);
             else console.log(`Subscribed to topic: ${topicPrefix}/#`);
@@ -931,7 +940,6 @@
           const parts = topic.split('/');
           const feedKey = parts[parts.length - 1];
           const raw = payload.toString().trim();
-          console.log(`[MQTT IN] ${topic} -> ${raw}`);
           handleFeedUpdate(feedKey, raw);
         });
 
@@ -955,83 +963,75 @@
         try { mqttClient.end(true); } catch(e){}
         mqttClient = null;
       }
-      setConnectionState(false, 'Disconnected');
     }
 
-    function startRestPolling() {
-      if (restPollingTimer) return;
-      const user = localStorage.getItem('spm_aio_user');
-      const key = localStorage.getItem('spm_aio_key');
-      if (!user || !key) return;
-
-      restPollingTimer = setInterval(async () => {
-        try {
-          for (const feed of ['voltage', 'current', 'powerfactor', 'cap-state', 'load-mode']) {
-            const res = await fetch(`https://io.adafruit.com/api/v2/${user}/feeds/${feed}/data?limit=1`, {
-              headers: { 'X-AIO-Key': key }
-            });
-            if (res.ok) {
-              const data = await res.json();
-              if (data && data.length > 0) {
-                handleFeedUpdate(feed, data[0].value);
-              }
-            }
-          }
-          setConnectionState(true, 'Live (REST Fallback)');
-        } catch (e) {
-          setConnectionState(false, 'Offline');
-        }
-      }, 2500);
-    }
-
-    function stopRestPolling() {
-      if (restPollingTimer) {
-        clearInterval(restPollingTimer);
-        restPollingTimer = null;
-      }
-    }
-
-    function setConnectionState(connected, text) {
-      state.connected = connected;
+    function setConnectionState(isConnected, text) {
+      state.connected = isConnected;
       const dot = document.getElementById('conn-dot');
-      const label = document.getElementById('conn-text');
-      const pill = document.getElementById('conn-pill');
-
-      label.textContent = text;
-
-      if (connected) {
+      const textEl = document.getElementById('conn-text');
+      
+      textEl.textContent = text;
+      if (isConnected) {
         dot.className = "w-2.5 h-2.5 rounded-full bg-emerald-500 pulse-dot";
-        pill.className = "flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium bg-emerald-950/40 border border-emerald-500/30";
-        label.className = "text-emerald-300 font-mono text-[11px]";
       } else {
         dot.className = "w-2.5 h-2.5 rounded-full bg-rose-500";
-        pill.className = "flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium bg-slate-800 border border-slate-700";
-        label.className = "text-slate-400 font-mono text-[11px]";
       }
+      updateSwitchesUI();
     }
 
-    // ---------------------------------------------------------------------------
-    // Feed Parsing & Telemetry Ingestion
-    // ---------------------------------------------------------------------------
-    function handleFeedUpdate(feedKey, rawValue) {
+    function handleFeedUpdate(feedKey, raw) {
       state.lastUpdated = Date.now();
-      const num = parseFloat(rawValue);
+      const num = parseFloat(raw);
 
       switch (feedKey) {
-        case 'voltage': state.data.voltage = num; break;
-        case 'current': state.data.current = num; break;
-        case 'realpower': state.data.realPower = num; break;
-        case 'reactivepower': state.data.reactivePower = num; break;
-        case 'apparentpower': state.data.apparentPower = num; break;
-        case 'powerfactor': state.data.powerFactor = num; break;
-        case 'pf-before': state.data.pfBefore = num; break;
-        case 'pf-after': state.data.pfAfter = num; break;
-        case 'load-mode': state.data.loadMode = rawValue.toLowerCase(); break;
-        case 'cap-state':
-          state.data.capState = parseInt(rawValue, 10);
-          state.pendingCaps.clear();
+        case 'voltage':
+          if (!isNaN(num)) state.data.voltage = num;
           break;
-        case 'pf-sign': state.data.pfSign = rawValue.toLowerCase(); break;
+        case 'current':
+          if (!isNaN(num)) state.data.current = num;
+          break;
+        case 'realpower':
+          if (!isNaN(num)) state.data.realPower = num;
+          break;
+        case 'reactivepower':
+          if (!isNaN(num)) state.data.reactivePower = num;
+          break;
+        case 'apparentpower':
+          if (!isNaN(num)) state.data.apparentPower = num;
+          break;
+        case 'powerfactor':
+          if (!isNaN(num)) state.data.powerFactor = num;
+          break;
+        case 'pf-before':
+          if (!isNaN(num)) state.data.pfBefore = num;
+          break;
+        case 'pf-after':
+          if (!isNaN(num)) state.data.pfAfter = num;
+          break;
+        case 'load-mode':
+          state.data.loadMode = raw.toLowerCase().includes('man') ? 'manual' : 'auto';
+          break;
+        case 'cap-state':
+          if (!isNaN(num)) {
+            state.data.capState = parseInt(num) & 0x7F;
+            state.pendingCaps.clear();
+          }
+          break;
+        case 'pf-sign':
+          state.data.pfSign = raw.toLowerCase().includes('lead') ? 'lead' : 'lag';
+          break;
+      }
+
+      // No-load clean guard: If voltage is off (<15V) or power is negligible (<20W / <0.35A),
+      // cleanly display 0.00A and Ideal 1.00 PF!
+      if (state.data.voltage < 15.0 || (state.data.realPower < 20.0 && state.data.current < 0.35)) {
+        state.data.current = 0.000;
+        state.data.realPower = 0.0;
+        state.data.reactivePower = 0.0;
+        state.data.apparentPower = 0.0;
+        state.data.powerFactor = 1.00;
+        state.data.pfBefore = 1.00;
+        state.data.pfAfter = 1.00;
       }
 
       appendHistoryPoint();
@@ -1039,92 +1039,114 @@
     }
 
     // ---------------------------------------------------------------------------
-    // Realistic Demo Simulation Engine
+    // Demo Mode Simulation
     // ---------------------------------------------------------------------------
+    function toggleDemoMode() {
+      const next = !state.isDemo;
+      localStorage.setItem('spm_demo_mode', next ? 'true' : 'false');
+      if (next) {
+        startDemoSimulation();
+      } else {
+        stopDemoSimulation();
+        connectTransport();
+      }
+      closeSettingsModal();
+    }
+
     function startDemoSimulation() {
       stopDemoSimulation();
+      disconnectTransport();
+      state.isDemo = true;
       setConnectionState(true, 'Demo Simulation');
       document.getElementById('badge-demo').classList.remove('hidden');
       document.getElementById('offline-alert').classList.add('hidden');
+      document.getElementById('btn-toggle-demo').textContent = 'Enabled';
 
       let t = 0;
       demoSimTimer = setInterval(() => {
         t += 1;
         state.lastUpdated = Date.now();
 
-        // 1. Grid Voltage fluctuating naturally around 228-232V
-        state.data.voltage = Number((230 + Math.sin(t / 8) * 2.5 + (Math.random() - 0.5) * 0.8).toFixed(1));
+        // Natural grid voltage fluctuation
+        state.data.voltage = Number((230 + Math.sin(t / 8) * 1.8 + (Math.random() - 0.5) * 0.5).toFixed(1));
 
-        // 2. Load cycle: switches every 25 seconds between Light Motor, Workshop Motor, and Resistive Heater
-        const loadCycle = Math.floor(t / 25) % 3;
-        let basePF = 0.72;
-        let baseCurrent = 4.2;
+        // Load scenario cycle (every 30s):
+        // 0: Induction Motor (PF 0.72)
+        // 1: Heavy Compressor (PF 0.60)
+        // 2: Idling / Standby (PF 1.00, P 0.0W)
+        const cycle = Math.floor(t / 30) % 3;
+        let basePF = 1.0;
+        let baseP = 0.0;
 
-        if (loadCycle === 0) {
-          basePF = 0.74; // Standard Induction Motor
-          baseCurrent = 3.8 + Math.sin(t / 5) * 0.5;
-        } else if (loadCycle === 1) {
-          basePF = 0.58; // Heavily loaded Compressor / Inductive
-          baseCurrent = 6.2 + Math.cos(t / 4) * 0.8;
+        if (cycle === 0) {
+          basePF = 0.74;
+          baseP = 550.0 + Math.sin(t / 5) * 40.0;
+        } else if (cycle === 1) {
+          basePF = 0.62;
+          baseP = 820.0 + Math.cos(t / 4) * 60.0;
         } else {
-          basePF = 0.94; // Lightly inductive / Resistive heater + fan
-          baseCurrent = 5.0 + Math.sin(t / 6) * 0.3;
+          basePF = 1.00; // Standby
+          baseP = 0.0;
         }
 
-        state.data.pfBefore = Number((basePF + (Math.random() - 0.5) * 0.02).toFixed(2));
-        state.data.current = Number(baseCurrent.toFixed(3));
-        state.data.pfSign = 'lag';
+        if (baseP === 0.0) {
+          // No load condition
+          state.data.current = 0.000;
+          state.data.realPower = 0.0;
+          state.data.reactivePower = 0.0;
+          state.data.apparentPower = 0.0;
+          state.data.powerFactor = 1.00;
+          state.data.pfBefore = 1.00;
+          state.data.pfAfter = 1.00;
+          state.data.capState = 0;
+          state.data.pfSign = 'lag';
+        } else {
+          state.data.realPower = Number(baseP.toFixed(1));
+          state.data.pfBefore = Number((basePF + (Math.random() - 0.5) * 0.01).toFixed(2));
+          state.data.pfSign = 'lag';
 
-        // Uncompensated Powers
-        const S_raw = state.data.voltage * state.data.current;
-        const P_raw = S_raw * state.data.pfBefore;
-        const Q_raw = Math.sqrt(Math.max(0, S_raw * S_raw - P_raw * P_raw));
+          const phi_raw = Math.acos(state.data.pfBefore);
+          const Q_raw = state.data.realPower * Math.tan(phi_raw);
 
-        // 3. APFC Decision in AUTO mode
-        if (state.data.loadMode === 'auto') {
-          // Calculate needed compensation to reach 0.98 PF
-          // Q_target = P * tan(acos(0.98))
-          const Q_target = P_raw * Math.tan(Math.acos(0.98));
-          const Q_needed = Math.max(0, Q_raw - Q_target);
+          // In AUTO mode, calculate optimal compensation targeting 0.99
+          if (state.data.loadMode === 'auto') {
+            const Q_target = state.data.realPower * Math.tan(Math.acos(0.99));
+            const Q_needed = Math.max(0, Q_raw - Q_target);
 
-          // Find best cap combination without exceeding Q_raw (never lead)
-          let bestMask = 0;
-          let bestDiff = 99999;
-          const omega = 2 * Math.PI * 50;
-          const vSq = state.data.voltage * state.data.voltage;
+            let bestMask = 0;
+            let bestDiff = 99999;
+            const omega = 2 * Math.PI * 50;
+            const vSq = state.data.voltage * state.data.voltage;
 
-          for (let mask = 0; mask < 128; mask++) {
-            let uF = 0;
-            for (let b = 0; b < 7; b++) {
-              if (mask & (1 << b)) uF += CAP_STEPS[b];
-            }
-            const Qc = omega * (uF * 1e-6) * vSq;
-            if (Qc <= Q_raw) {
-              const diff = Math.abs(Q_needed - Qc);
-              if (diff < bestDiff) {
-                bestDiff = diff;
-                bestMask = mask;
+            for (let mask = 0; mask < 128; mask++) {
+              let uF = 0;
+              for (let b = 0; b < 7; b++) {
+                if (mask & (1 << b)) uF += CAP_STEPS[b];
+              }
+              const Qc = omega * (uF * 1e-6) * vSq;
+              if (Qc <= Q_raw) {
+                const diff = Math.abs(Q_needed - Qc);
+                if (diff < bestDiff) {
+                  bestDiff = diff;
+                  bestMask = mask;
+                }
               }
             }
+            state.data.capState = bestMask;
           }
-          state.data.capState = bestMask;
+
+          const totalUf = getActiveCapacitance(state.data.capState);
+          const Qc = 2 * Math.PI * 50 * (totalUf * 1e-6) * (state.data.voltage * state.data.voltage);
+          const Q_net = Math.max(0, Q_raw - Qc);
+
+          state.data.reactivePower = Number(Q_net.toFixed(1));
+          state.data.apparentPower = Number(Math.sqrt(state.data.realPower ** 2 + Q_net ** 2).toFixed(1));
+          state.data.current = Number((state.data.apparentPower / state.data.voltage).toFixed(3));
+          
+          const compensatedPF = state.data.apparentPower > 0 ? (state.data.realPower / state.data.apparentPower) : 1.0;
+          state.data.pfAfter = Number(Math.min(1.0, Math.max(0.97, compensatedPF)).toFixed(2));
+          state.data.powerFactor = state.data.pfAfter;
         }
-
-        // 4. Calculate Compensated Powers
-        const totalUf = getActiveCapacitance(state.data.capState);
-        const Qc = 2 * Math.PI * 50 * (totalUf * 1e-6) * (state.data.voltage * state.data.voltage);
-        const Q_net = Q_raw - Qc;
-
-        state.data.realPower = Number(P_raw.toFixed(1));
-        state.data.reactivePower = Number(Q_net.toFixed(1));
-        state.data.apparentPower = Number(Math.sqrt(P_raw * P_raw + Q_net * Q_net).toFixed(1));
-        
-        const compensatedPF = state.data.apparentPower > 0 ? (state.data.realPower / state.data.apparentPower) : 1.0;
-        state.data.pfAfter = Number(Math.min(1.0, compensatedPF).toFixed(2));
-        state.data.powerFactor = state.data.pfAfter;
-
-        // Current reduction
-        state.data.current = Number((state.data.apparentPower / state.data.voltage).toFixed(3));
 
         appendHistoryPoint();
         renderAll();
@@ -1136,10 +1158,13 @@
         clearInterval(demoSimTimer);
         demoSimTimer = null;
       }
+      state.isDemo = false;
+      document.getElementById('badge-demo').classList.add('hidden');
+      document.getElementById('btn-toggle-demo').textContent = 'Disabled';
     }
 
     // ---------------------------------------------------------------------------
-    // Calculations & Math Utilities
+    // Math & Electrical Utilities
     // ---------------------------------------------------------------------------
     function getActiveCapacitance(mask) {
       let sum = 0;
@@ -1149,67 +1174,53 @@
       return sum;
     }
 
-    function calculateQc(uF, v, f = 50) {
-      return 2 * Math.PI * f * (uF * 1e-6) * (v * v);
+    function calculateQc(uF, V, f = 50) {
+      return 2 * Math.PI * f * (uF * 1e-6) * (V * V);
     }
 
     function detectLoadClassification(pf, sign, q) {
-      if (sign === 'lead' || q < 0) {
+      if (state.data.realPower < 20.0 || state.data.current < 0.35) {
         return {
-          title: 'Capacitive Load',
-          icon: 'zap',
-          desc: 'Synchronous motor or over-compensated capacitor bank causing voltage to lag current.',
-          confidence: 'High',
-          color: 'indigo'
+          title: 'Standby / Idle System',
+          icon: 'check-circle',
+          desc: 'No significant load connected. System is in high-efficiency zero-load standby.',
+          confidence: 'High'
         };
       }
-      if (Math.abs(q) < 40 && pf < 0.70) {
+      if (sign === 'lead' || q < -10) {
         return {
-          title: 'Non-linear / Distorted Load',
-          icon: 'activity',
-          desc: 'Switched-Mode Power Supply (SMPS), computer equipment, or rectifier causing waveform harmonic distortion.',
-          confidence: 'Medium',
-          color: 'purple'
+          title: 'Capacitive Load (Leading)',
+          icon: 'alert-triangle',
+          desc: 'Over-compensated or active capacitive filter. Current leads line voltage.',
+          confidence: 'High'
         };
       }
       if (pf >= 0.95) {
         return {
-          title: 'Resistive Load',
-          icon: 'flame',
-          desc: 'Electric heater, incandescent lamp, or thermal element with near-unity current-voltage alignment.',
-          confidence: 'High',
-          color: 'emerald'
+          title: 'Resistive Load (Unity PF)',
+          icon: 'sun',
+          desc: 'Incandescent heater, filament lamp, or toaster. Voltage and current in phase.',
+          confidence: 'Very High'
         };
       }
       if (pf >= 0.80) {
         return {
           title: 'Lightly Inductive Load',
-          icon: 'fan',
-          desc: 'Ventilation fan, small appliance, refrigerator compressor, or LED/CFL ballast driver.',
-          confidence: 'High',
-          color: 'sky'
-        };
-      }
-      if (pf >= 0.50) {
-        return {
-          title: 'Inductive Load',
-          icon: 'cog',
-          desc: 'Industrial induction motor, transformer, water pump, or machine tool generating lagging magnetizing VARs.',
-          confidence: 'High',
-          color: 'amber'
+          icon: 'wind',
+          desc: 'Ceiling fan, loaded universal motor, or modern inverter appliance.',
+          confidence: 'High'
         };
       }
       return {
-        title: 'Heavily Inductive Load',
-        icon: 'alert-triangle',
-        desc: 'Lightly loaded or idling induction motor with high reactive magnetization current.',
-        confidence: 'High',
-        color: 'rose'
+        title: 'Inductive Load (Motor/Choke)',
+        icon: 'cog',
+        desc: 'Single-phase AC induction motor, compressor, or magnetic choke ballast.',
+        confidence: 'Very High'
       };
     }
 
     // ---------------------------------------------------------------------------
-    // Render Functions (Gauges, Cards, Controls)
+    // Render Functions (Neumorphic Gauges & Cards)
     // ---------------------------------------------------------------------------
     function renderAll() {
       const d = state.data;
@@ -1226,15 +1237,15 @@
       document.getElementById('val-q-sign').textContent = isLead ? '- Lead' : '+ Lag';
       document.getElementById('val-q-sign').className = isLead ? 'text-rose-400 font-bold' : 'text-teal-400 font-bold';
 
-      // Leading PF Warning Banner
+      // Leading Alert
       document.getElementById('leading-alert').classList.toggle('hidden', !isLead);
 
       // Sign Badge
       const signBadge = document.getElementById('badge-pf-sign');
-      signBadge.textContent = isLead ? 'Leading ⚠️ Over-compensated' : 'Lagging (Inductive)';
-      signBadge.className = isLead 
-        ? 'px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-rose-500/20 text-rose-300 border border-rose-500/40'
-        : 'px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/40';
+      signBadge.textContent = isLead ? 'Leading (Over-Compensated)' : 'Lagging (Inductive)';
+      signBadge.className = isLead
+        ? 'neu-pressed px-3.5 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider text-rose-400'
+        : 'neu-pressed px-3.5 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider text-emerald-400';
 
       // 2. Power Factor Gauges
       renderGauge('gauge-arc-before', 'gauge-val-before', d.pfBefore);
@@ -1248,16 +1259,14 @@
 
       const totalUf = getActiveCapacitance(d.capState);
       const Qc = calculateQc(totalUf, d.voltage, d.freq);
-      document.getElementById('stat-qc').innerHTML = `${Qc.toFixed(1)} <span class="text-xs">VAR</span>`;
+      document.getElementById('stat-qc').innerHTML = `${Qc.toFixed(1)} <span class="text-xs font-normal">VAR</span>`;
 
-      // Reactive saved
       const qSaved = Math.max(0, (d.realPower * Math.tan(Math.acos(Math.max(0.01, d.pfBefore)))) - d.reactivePower);
-      document.getElementById('stat-q-saved').innerHTML = `${qSaved.toFixed(1)} <span class="text-xs">VAR</span>`;
+      document.getElementById('stat-q-saved').innerHTML = `${qSaved.toFixed(1)} <span class="text-xs font-normal">VAR</span>`;
 
-      // Apparent Current Reduction
       const iBefore = d.voltage > 0 ? (d.realPower / (d.pfBefore * d.voltage)) : 0;
       const iDrop = Math.max(0, iBefore - d.current);
-      document.getElementById('stat-i-drop').innerHTML = `${iDrop.toFixed(2)} <span class="text-xs">A</span>`;
+      document.getElementById('stat-i-drop').innerHTML = `${iDrop.toFixed(2)} <span class="text-xs font-normal">A</span>`;
 
       document.getElementById('stat-total-c').textContent = `${totalUf.toFixed(1)} µF`;
       document.getElementById('stat-cap-mask').textContent = `0b${d.capState.toString(2).padStart(7, '0')} (0x${d.capState.toString(16).toUpperCase()})`;
@@ -1272,7 +1281,7 @@
       const iconBox = document.getElementById('load-icon-box');
       iconBox.innerHTML = `<i data-lucide="${loadInfo.icon}" class="w-8 h-8"></i>`;
 
-      // 5. Capacitor Switches & Mode
+      // 5. Capacitor Switches
       updateSwitchesUI();
       lucide.createIcons();
     }
@@ -1282,7 +1291,6 @@
       document.getElementById(valId).textContent = clamped.toFixed(2);
 
       const arc = document.getElementById(arcId);
-      // Semicircle arc length = PI * R = 3.14159 * 40 = 125.66
       const totalLen = 125.66;
       const offset = totalLen * (1 - clamped);
       arc.style.strokeDashoffset = offset;
@@ -1297,7 +1305,7 @@
     }
 
     // ---------------------------------------------------------------------------
-    // Manual Control Switches & Relay Handlers
+    // Tactile Neumorphic Capacitor Switches
     // ---------------------------------------------------------------------------
     function renderCapSwitches() {
       const container = document.getElementById('cap-switches-container');
@@ -1307,10 +1315,10 @@
         const btn = document.createElement('button');
         btn.id = `cap-btn-${index}`;
         btn.onclick = () => toggleCapSwitch(index);
-        btn.className = "flex flex-col items-center justify-center p-3 rounded-xl border border-slate-700 bg-slate-800 transition-all cursor-pointer";
+        btn.className = "neu-switch-off flex flex-col items-center justify-center p-3.5 transition-all cursor-pointer";
         btn.innerHTML = `
-          <span class="text-xs font-bold text-white">${uF} µF</span>
-          <span id="cap-status-${index}" class="text-[9px] uppercase font-mono mt-1 text-slate-500">OFF</span>
+          <span class="text-xs font-bold">${uF} µF</span>
+          <span id="cap-status-${index}" class="text-[9px] uppercase font-mono mt-1 text-[var(--neu-text-muted)] font-semibold">OFF</span>
         `;
         container.appendChild(btn);
       });
@@ -1320,18 +1328,21 @@
       const isAuto = state.data.loadMode === 'auto';
       const isOffline = !state.connected;
 
-      // Mode Buttons
-      document.getElementById('btn-mode-auto').className = isAuto
-        ? "px-3 py-1 rounded-lg text-xs font-bold transition-all bg-teal-600 text-white shadow-sm"
-        : "px-3 py-1 rounded-lg text-xs font-bold transition-all bg-slate-700 text-slate-300 hover:text-white";
+      // Mode Switcher buttons
+      const btnAuto = document.getElementById('btn-mode-auto');
+      const btnManual = document.getElementById('btn-mode-manual');
 
-      document.getElementById('btn-mode-manual').className = !isAuto
-        ? "px-3 py-1 rounded-lg text-xs font-bold transition-all bg-teal-600 text-white shadow-sm"
-        : "px-3 py-1 rounded-lg text-xs font-bold transition-all bg-slate-700 text-slate-300 hover:text-white";
+      if (isAuto) {
+        btnAuto.className = "neu-btn px-3 py-1.5 rounded-lg text-xs font-bold text-teal-400 active";
+        btnManual.className = "neu-btn px-3 py-1.5 rounded-lg text-xs font-bold text-[var(--neu-text-muted)]";
+      } else {
+        btnAuto.className = "neu-btn px-3 py-1.5 rounded-lg text-xs font-bold text-[var(--neu-text-muted)]";
+        btnManual.className = "neu-btn px-3 py-1.5 rounded-lg text-xs font-bold text-teal-400 active";
+      }
 
       document.getElementById('mode-badge').textContent = isAuto ? 'AUTO' : 'MANUAL';
       document.getElementById('mode-notice-text').textContent = isAuto
-        ? "ESP32 is dynamically selecting optimal capacitor steps to target 0.98 PF."
+        ? "ESP32 is dynamically selecting optimal capacitor steps to target PF near 1.00."
         : "Manual control active. Click capacitor stages to test compensation.";
 
       const totalUf = getActiveCapacitance(state.data.capState);
@@ -1339,29 +1350,30 @@
 
       CAP_STEPS.forEach((uF, i) => {
         const btn = document.getElementById(`cap-btn-${i}`);
+        if (!btn) return;
         const statusSpan = document.getElementById(`cap-status-${i}`);
         const isOn = Boolean(state.data.capState & (1 << i));
         const isPending = state.pendingCaps.has(i);
 
         if (isPending) {
-          btn.className = "flex flex-col items-center justify-center p-3 rounded-xl border border-amber-500 bg-amber-500/20 animate-pulse text-amber-300";
+          btn.className = "neu-switch-wait flex flex-col items-center justify-center p-3.5 animate-pulse text-amber-400";
           statusSpan.textContent = "WAIT...";
           statusSpan.className = "text-[9px] uppercase font-mono mt-1 text-amber-400 font-bold";
         } else if (isOn) {
-          btn.className = "flex flex-col items-center justify-center p-3 rounded-xl border border-emerald-500/80 bg-emerald-950/60 shadow-lg text-white";
+          btn.className = "neu-switch-on flex flex-col items-center justify-center p-3.5 text-teal-400";
           statusSpan.textContent = "ON";
-          statusSpan.className = "text-[9px] uppercase font-mono mt-1 text-emerald-400 font-bold";
+          statusSpan.className = "text-[9px] uppercase font-mono mt-1 text-teal-400 font-bold";
         } else {
-          btn.className = "flex flex-col items-center justify-center p-3 rounded-xl border border-slate-700 bg-slate-800/80 text-slate-300 hover:border-slate-600";
+          btn.className = "neu-switch-off flex flex-col items-center justify-center p-3.5 text-[var(--neu-text)]";
           statusSpan.textContent = "OFF";
-          statusSpan.className = "text-[9px] uppercase font-mono mt-1 text-slate-500";
+          statusSpan.className = "text-[9px] uppercase font-mono mt-1 text-[var(--neu-text-muted)]";
         }
 
         btn.disabled = isAuto || isOffline;
         if (isAuto || isOffline) {
-          btn.classList.add('opacity-70', 'cursor-not-allowed');
+          btn.classList.add('opacity-60', 'cursor-not-allowed');
         } else {
-          btn.classList.remove('opacity-70', 'cursor-not-allowed');
+          btn.classList.remove('opacity-60', 'cursor-not-allowed');
         }
       });
     }
@@ -1379,16 +1391,15 @@
       const currentBit = Boolean(state.data.capState & (1 << index));
       const targetMask = state.data.capState ^ (1 << index);
 
-      // Check for leading PF prediction before switching ON
       if (!currentBit) {
         const targetUf = getActiveCapacitance(targetMask);
         const Qc = calculateQc(targetUf, state.data.voltage, state.data.freq);
         const Q_raw = Math.sqrt(Math.max(0, (state.data.apparentPower ** 2) - (state.data.realPower ** 2)));
 
-        if (Qc > Q_raw) {
+        if (Qc > Q_raw && Q_raw > 10) {
           showConfirmModal(
             'Warning: Leading Power Factor Risk',
-            `Adding ${CAP_STEPS[index]} µF will generate ${Qc.toFixed(0)} VAR, exceeding the load inductive demand (${Q_raw.toFixed(0)} VAR). This will cause undesirable leading PF. Proceed?`,
+            `Adding ${CAP_STEPS[index]} µF will generate ${Qc.toFixed(0)} VAR, exceeding the inductive load (${Q_raw.toFixed(0)} VAR). Proceed?`,
             () => dispatchCapCommand(targetMask, index)
           );
           return;
@@ -1405,7 +1416,7 @@
       }
       showConfirmModal(
         'Confirm Disconnect All',
-        'Turn off all 7 capacitor steps? Power factor will immediately drop to uncompensated baseline.',
+        'Turn off all 7 capacitor stages? Power factor will drop to uncompensated baseline.',
         () => dispatchCapCommand(0, -1)
       );
     }
@@ -1415,321 +1426,303 @@
       updateSwitchesUI();
 
       if (state.isDemo) {
-        // Simulate ESP32 acknowledging relay after 400ms
         setTimeout(() => {
           state.data.capState = newMask;
           state.pendingCaps.clear();
           renderAll();
-        }, 400);
-      } else {
-        publishToFeed('cap-command', newMask);
-        // Timeout safeguard
-        setTimeout(() => {
-          if (state.pendingCaps.size > 0) {
-            state.pendingCaps.clear();
-            updateSwitchesUI();
-            showToast('Warning: No response from ESP32 relay bank');
-          }
-        }, 5000);
+        }, 350);
+        return;
+      }
+
+      if (mqttClient && state.connected) {
+        const topicPrefix = localStorage.getItem('spm_topic_prefix') || 'apfc_monitor_abhi90';
+        mqttClient.publish(`${topicPrefix}/cap-command`, newMask.toString());
+        console.log(`[MQTT PUB] ${topicPrefix}/cap-command -> ${newMask}`);
       }
     }
 
     function setControlMode(mode) {
-      state.data.loadMode = mode;
-      updateSwitchesUI();
-
-      if (!state.isDemo) {
-        publishToFeed('load-mode', mode);
+      if (state.isDemo) {
+        state.data.loadMode = mode;
+        renderAll();
+        return;
       }
-      showToast(`Switched to ${mode.toUpperCase()} mode`);
-    }
 
-    function publishToFeed(feed, val) {
-      const topicPrefix = localStorage.getItem('spm_topic_prefix') || 'apfc_monitor_abhi90';
-      const topic = `${topicPrefix}/${feed}`;
-
-      if (mqttClient && mqttClient.connected) {
-        mqttClient.publish(topic, String(val), { qos: 0 }, (err) => {
-          if (err) {
-            console.error(`MQTT publish failed for ${topic}:`, err);
-          } else {
-            console.log(`[MQTT PUB] ${topic} -> ${val}`);
-          }
-        });
-      } else {
-        console.warn('MQTT client not connected, unable to publish to', topic);
+      if (mqttClient && state.connected) {
+        const topicPrefix = localStorage.getItem('spm_topic_prefix') || 'apfc_monitor_abhi90';
+        mqttClient.publish(`${topicPrefix}/load-mode`, mode);
+        state.data.loadMode = mode;
+        updateSwitchesUI();
       }
     }
 
     // ---------------------------------------------------------------------------
-    // PIN Lock Safety Implementation
+    // PIN Authentication System
     // ---------------------------------------------------------------------------
     function unlockPin() {
       const input = document.getElementById('pin-input');
-      const error = document.getElementById('pin-error');
+      const err = document.getElementById('pin-error');
 
       if (input.value === state.pin) {
         state.controlUnlocked = true;
         document.getElementById('pin-overlay').classList.add('hidden');
-        error.classList.add('hidden');
         input.value = '';
-        showToast('Safety lock disabled. Manual control active.');
+        err.classList.add('hidden');
+        showToast('Controls unlocked');
       } else {
-        state.pinAttempts--;
-        error.classList.remove('hidden');
-        error.textContent = `Incorrect PIN. ${state.pinAttempts} attempts remaining.`;
+        err.classList.remove('hidden');
         input.value = '';
-        if (state.pinAttempts <= 0) {
-          alert('Too many failed attempts. Controls locked for 30 seconds.');
-          setTimeout(() => { state.pinAttempts = 3; error.classList.add('hidden'); }, 30000);
-        }
       }
     }
 
     function lockPin() {
       state.controlUnlocked = false;
       document.getElementById('pin-overlay').classList.remove('hidden');
-      showToast('Controls locked for safety');
+      showToast('Controls locked');
     }
 
     // ---------------------------------------------------------------------------
-    // Confirmation Modal
-    // ---------------------------------------------------------------------------
-    function showConfirmModal(title, desc, onConfirm) {
-      document.getElementById('confirm-title').textContent = title;
-      document.getElementById('confirm-desc').textContent = desc;
-      confirmCallback = onConfirm;
-      document.getElementById('confirm-modal').classList.remove('hidden');
-      lucide.createIcons();
-    }
-
-    function closeConfirmModal(accepted) {
-      document.getElementById('confirm-modal').classList.add('hidden');
-      if (accepted && confirmCallback) {
-        confirmCallback();
-      }
-      confirmCallback = null;
-    }
-
-    // ---------------------------------------------------------------------------
-    // Charts & Telemetry (Chart.js)
+    // Charts (Telemetry History Dynamics)
     // ---------------------------------------------------------------------------
     function initCharts() {
-      const commonOpts = {
-        responsive: true,
-        maintainAspectRatio: false,
-        animation: false,
-        scales: {
-          x: {
-            grid: { color: 'rgba(51, 65, 85, 0.4)' },
-            ticks: { color: '#94a3b8', font: { size: 10 } }
-          },
-          y: {
-            grid: { color: 'rgba(51, 65, 85, 0.4)' },
-            ticks: { color: '#94a3b8', font: { size: 10 } }
-          }
-        },
-        plugins: {
-          legend: { labels: { color: '#cbd5e1', font: { size: 11 } } }
-        }
-      };
+      const gridColor = document.documentElement.classList.contains('dark') ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)';
+      const tickColor = document.documentElement.classList.contains('dark') ? '#94a3b8' : '#64748b';
 
       // Chart 1: V & I
-      charts.vi = new Chart(document.getElementById('chart-vi'), {
+      const ctxVI = document.getElementById('chart-vi').getContext('2d');
+      chartVI = new Chart(ctxVI, {
         type: 'line',
         data: {
           labels: [],
           datasets: [
-            {
-              label: 'Voltage (V)',
-              borderColor: '#f59e0b',
-              backgroundColor: 'rgba(245, 158, 11, 0.1)',
-              data: [],
-              yAxisID: 'y'
-            },
-            {
-              label: 'Current (A)',
-              borderColor: '#38bdf8',
-              backgroundColor: 'rgba(56, 189, 248, 0.1)',
-              data: [],
-              yAxisID: 'y1'
-            }
+            { label: 'Voltage (V)', data: [], borderColor: '#f59e0b', borderWidth: 2, yAxisID: 'yV', tension: 0.3, pointRadius: 0 },
+            { label: 'Current (A)', data: [], borderColor: '#38bdf8', borderWidth: 2, yAxisID: 'yI', tension: 0.3, pointRadius: 0 }
           ]
         },
         options: {
-          ...commonOpts,
+          responsive: true,
+          maintainAspectRatio: false,
           scales: {
-            ...commonOpts.scales,
-            y: { ...commonOpts.scales.y, position: 'left', title: { display: true, text: 'Volts (RMS)', color: '#f59e0b' } },
-            y1: { ...commonOpts.scales.y, position: 'right', grid: { drawOnChartArea: false }, title: { display: true, text: 'Amps (RMS)', color: '#38bdf8' } }
-          }
+            x: { grid: { color: gridColor }, ticks: { color: tickColor, maxTicksLimit: 6 } },
+            yV: { type: 'linear', position: 'left', grid: { color: gridColor }, ticks: { color: '#f59e0b' } },
+            yI: { type: 'linear', position: 'right', grid: { drawOnChartArea: false }, ticks: { color: '#38bdf8' } }
+          },
+          plugins: { legend: { labels: { color: tickColor } } }
         }
       });
 
       // Chart 2: P, Q, S
-      charts.pqs = new Chart(document.getElementById('chart-pqs'), {
+      const ctxPQS = document.getElementById('chart-pqs').getContext('2d');
+      chartPQS = new Chart(ctxPQS, {
         type: 'line',
         data: {
           labels: [],
           datasets: [
-            { label: 'Real P (W)', borderColor: '#10b981', data: [] },
-            { label: 'Reactive Q (VAR)', borderColor: '#c084fc', data: [] },
-            { label: 'Apparent S (VA)', borderColor: '#22d3ee', data: [] }
-          ]
-        },
-        options: commonOpts
-      });
-
-      // Chart 3: PF
-      charts.pf = new Chart(document.getElementById('chart-pf'), {
-        type: 'line',
-        data: {
-          labels: [],
-          datasets: [
-            { label: 'PF Before (Baseline)', borderColor: '#f43f5e', borderDash: [4, 4], data: [] },
-            { label: 'PF After (Corrected)', borderColor: '#10b981', data: [] },
-            { label: '0.98 Target', borderColor: '#14b8a6', borderDash: [6, 2], pointRadius: 0, data: [] }
+            { label: 'Active P (W)', data: [], borderColor: '#10b981', borderWidth: 2, tension: 0.3, pointRadius: 0 },
+            { label: 'Reactive Q (VAR)', data: [], borderColor: '#f43f5e', borderWidth: 2, tension: 0.3, pointRadius: 0 },
+            { label: 'Apparent S (VA)', data: [], borderColor: '#c084fc', borderWidth: 2, tension: 0.3, pointRadius: 0 }
           ]
         },
         options: {
-          ...commonOpts,
+          responsive: true,
+          maintainAspectRatio: false,
           scales: {
-            ...commonOpts.scales,
-            y: { ...commonOpts.scales.y, min: 0.4, max: 1.05 }
-          }
+            x: { grid: { color: gridColor }, ticks: { color: tickColor, maxTicksLimit: 6 } },
+            y: { grid: { color: gridColor }, ticks: { color: tickColor } }
+          },
+          plugins: { legend: { labels: { color: tickColor } } }
+        }
+      });
+
+      // Chart 3: PF
+      const ctxPF = document.getElementById('chart-pf').getContext('2d');
+      chartPF = new Chart(ctxPF, {
+        type: 'line',
+        data: {
+          labels: [],
+          datasets: [
+            { label: 'Baseline PF Before', data: [], borderColor: '#f43f5e', borderDash: [4, 4], borderWidth: 2, tension: 0.2, pointRadius: 0 },
+            { label: 'Corrected PF After', data: [], borderColor: '#14b8a6', borderWidth: 2.5, tension: 0.2, pointRadius: 0 }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            x: { grid: { color: gridColor }, ticks: { color: tickColor, maxTicksLimit: 6 } },
+            y: { min: 0.0, max: 1.05, grid: { color: gridColor }, ticks: { color: tickColor } }
+          },
+          plugins: { legend: { labels: { color: tickColor } } }
         }
       });
     }
 
     function appendHistoryPoint() {
       const now = new Date();
-      const timeStr = now.toLocaleTimeString();
+      const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 
-      const h = state.history;
-      h.timestamps.push(timeStr);
-      h.v.push(state.data.voltage);
-      h.i.push(state.data.current);
-      h.p.push(state.data.realPower);
-      h.q.push(state.data.reactivePower);
-      h.s.push(state.data.apparentPower);
-      h.pfBefore.push(state.data.pfBefore);
-      h.pfAfter.push(state.data.pfAfter);
-      h.capState.push(state.data.capState);
+      state.history.timestamps.push(timeStr);
+      state.history.v.push(state.data.voltage);
+      state.history.i.push(state.data.current);
+      state.history.p.push(state.data.realPower);
+      state.history.q.push(Math.abs(state.data.reactivePower));
+      state.history.s.push(state.data.apparentPower);
+      state.history.pfBefore.push(state.data.pfBefore);
+      state.history.pfAfter.push(state.data.pfAfter);
+      state.history.capState.push(state.data.capState);
 
-      // Keep max 300 points in memory
-      if (h.timestamps.length > 300) {
-        Object.keys(h).forEach(k => h[k].shift());
+      const maxPts = 60;
+      if (state.history.timestamps.length > maxPts) {
+        state.history.timestamps.shift();
+        state.history.v.shift();
+        state.history.i.shift();
+        state.history.p.shift();
+        state.history.q.shift();
+        state.history.s.shift();
+        state.history.pfBefore.shift();
+        state.history.pfAfter.shift();
+        state.history.capState.shift();
       }
 
-      // Update charts every 3 seconds if charts tab is active
-      if (!document.getElementById('tab-charts').classList.contains('hidden')) {
-        updateAllCharts();
-      }
+      updateChartsData();
     }
 
-    function updateAllCharts() {
-      if (!charts.vi) return;
-      const h = state.history;
+    function updateChartsData() {
+      if (!chartVI || !chartPQS || !chartPF) return;
 
-      charts.vi.data.labels = h.timestamps;
-      charts.vi.data.datasets[0].data = h.v;
-      charts.vi.data.datasets[1].data = h.i;
-      charts.vi.update();
+      chartVI.data.labels = state.history.timestamps;
+      chartVI.data.datasets[0].data = state.history.v;
+      chartVI.data.datasets[1].data = state.history.i;
+      chartVI.update('none');
 
-      charts.pqs.data.labels = h.timestamps;
-      charts.pqs.data.datasets[0].data = h.p;
-      charts.pqs.data.datasets[1].data = h.q;
-      charts.pqs.data.datasets[2].data = h.s;
-      charts.pqs.update();
+      chartPQS.data.labels = state.history.timestamps;
+      chartPQS.data.datasets[0].data = state.history.p;
+      chartPQS.data.datasets[1].data = state.history.q;
+      chartPQS.data.datasets[2].data = state.history.s;
+      chartPQS.update('none');
 
-      charts.pf.data.labels = h.timestamps;
-      charts.pf.data.datasets[0].data = h.pfBefore;
-      charts.pf.data.datasets[1].data = h.pfAfter;
-      charts.pf.data.datasets[2].data = h.timestamps.map(() => 0.98);
-      charts.pf.update();
-
-      renderTimeline();
+      chartPF.data.labels = state.history.timestamps;
+      chartPF.data.datasets[0].data = state.history.pfBefore;
+      chartPF.data.datasets[1].data = state.history.pfAfter;
+      chartPF.update('none');
     }
 
-    function renderTimeline() {
-      const container = document.getElementById('timeline-strip');
-      container.innerHTML = '';
+    function updateChartsTheme() {
+      const isDark = document.documentElement.classList.contains('dark');
+      const gridColor = isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)';
+      const tickColor = isDark ? '#94a3b8' : '#64748b';
 
-      const h = state.history.capState;
-      const recent = h.slice(-40); // Last 40 intervals
-
-      CAP_STEPS.forEach((uF, i) => {
-        const row = document.createElement('div');
-        row.className = "flex items-center gap-3";
-
-        const label = document.createElement('span');
-        label.className = "w-16 font-bold text-slate-300";
-        label.textContent = `C${i + 1} (${uF}µF)`;
-        row.appendChild(label);
-
-        const track = document.createElement('div');
-        track.className = "flex-1 flex gap-1 h-3.5 bg-slate-900 rounded p-0.5";
-
-        if (recent.length === 0) {
-          track.innerHTML = '<span class="text-[10px] text-slate-600 pl-1">Awaiting data...</span>';
-        } else {
-          recent.forEach(mask => {
-            const on = Boolean(mask & (1 << i));
-            const bar = document.createElement('div');
-            bar.className = `flex-1 rounded-sm ${on ? 'bg-emerald-500 shadow-sm' : 'bg-slate-800'}`;
-            track.appendChild(bar);
-          });
+      [chartVI, chartPQS, chartPF].forEach(c => {
+        if (!c) return;
+        c.options.scales.x.grid.color = gridColor;
+        c.options.scales.x.ticks.color = tickColor;
+        if (c.options.scales.y) {
+          c.options.scales.y.grid.color = gridColor;
+          c.options.scales.y.ticks.color = tickColor;
         }
-
-        row.appendChild(track);
-        container.appendChild(row);
+        c.options.plugins.legend.labels.color = tickColor;
+        c.update('none');
       });
     }
 
     function downloadCSV() {
-      const h = state.history;
-      if (h.timestamps.length === 0) {
-        showToast('No telemetry data available yet.');
-        return;
+      const rows = [
+        ['Timestamp', 'Voltage (V)', 'Current (A)', 'Real Power (W)', 'Reactive Power (VAR)', 'Apparent Power (VA)', 'PF Before', 'PF After', 'Cap State']
+      ];
+
+      for (let i = 0; i < state.history.timestamps.length; i++) {
+        rows.push([
+          state.history.timestamps[i],
+          state.history.v[i],
+          state.history.i[i],
+          state.history.p[i],
+          state.history.q[i],
+          state.history.s[i],
+          state.history.pfBefore[i],
+          state.history.pfAfter[i],
+          state.history.capState[i]
+        ]);
       }
 
-      let csv = 'Timestamp,Voltage_V,Current_A,Active_P_W,Reactive_Q_VAR,Apparent_S_VA,PF_Before,PF_After,Cap_Mask\n';
-      for (let i = 0; i < h.timestamps.length; i++) {
-        csv += `${h.timestamps[i]},${h.v[i]},${h.i[i]},${h.p[i]},${h.q[i]},${h.s[i]},${h.pfBefore[i]},${h.pfAfter[i]},${h.capState[i]}\n`;
-      }
-
-      const blob = new Blob([csv], { type: 'text/csv' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `apfc_telemetry_${Date.now()}.csv`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      const csvContent = "data:text/csv;charset=utf-8," + rows.map(e => e.join(",")).join("\n");
+      const encodedUri = encodeURI(csvContent);
+      const link = document.createElement("a");
+      link.setAttribute("href", encodedUri);
+      link.setAttribute("download", `telemetry_${Date.now()}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
     }
 
-    function updateTimeAgoDisplay() {
-      const el = document.getElementById('reading-age');
-      const delayed = document.getElementById('delayed-badge');
-      const delayedSecs = document.getElementById('delayed-secs');
+    // ---------------------------------------------------------------------------
+    // Tabs & Modals
+    // ---------------------------------------------------------------------------
+    function switchTab(tab) {
+      document.getElementById('tab-dashboard').classList.toggle('hidden', tab !== 'dashboard');
+      document.getElementById('tab-charts').classList.toggle('hidden', tab !== 'charts');
 
-      if (!state.lastUpdated) {
-        el.textContent = 'Last update: never';
-        delayed.classList.add('hidden');
-        return;
-      }
+      const btnDash = document.getElementById('tab-btn-dashboard');
+      const btnCharts = document.getElementById('tab-btn-charts');
 
-      const sec = Math.floor((Date.now() - state.lastUpdated) / 1000);
-      el.textContent = `Last update: ${sec}s ago`;
-
-      // Show delayed badge if disconnected or > 5s without update
-      if (state.connected && sec > 5) {
-        delayed.classList.remove('hidden');
-        delayedSecs.textContent = sec;
+      if (tab === 'dashboard') {
+        btnDash.className = "neu-btn flex items-center gap-2 px-4 py-1.5 text-xs font-bold rounded-lg text-teal-400 active";
+        btnCharts.className = "neu-btn flex items-center gap-2 px-4 py-1.5 text-xs font-bold rounded-lg text-[var(--neu-text-muted)]";
       } else {
-        delayed.classList.add('hidden');
+        btnDash.className = "neu-btn flex items-center gap-2 px-4 py-1.5 text-xs font-bold rounded-lg text-[var(--neu-text-muted)]";
+        btnCharts.className = "neu-btn flex items-center gap-2 px-4 py-1.5 text-xs font-bold rounded-lg text-teal-400 active";
       }
+    }
+
+    function setTimeWindow(mins) {
+      state.timeWindowMinutes = mins;
+      [5, 60, 1440].forEach(m => {
+        const btn = document.getElementById(`btn-tw-${m}`);
+        if (m === mins) {
+          btn.className = "neu-btn px-3 py-1 rounded-lg font-bold text-teal-400 active";
+        } else {
+          btn.className = "neu-btn px-3 py-1 rounded-lg font-bold text-[var(--neu-text-muted)]";
+        }
+      });
+    }
+
+    function openSettingsModal() {
+      document.getElementById('cfg-topic-prefix').value = localStorage.getItem('spm_topic_prefix') || 'apfc_monitor_abhi90';
+      document.getElementById('cfg-pin').value = state.pin;
+      document.getElementById('settings-modal').classList.remove('hidden');
+    }
+
+    function closeSettingsModal() {
+      document.getElementById('settings-modal').classList.add('hidden');
+    }
+
+    function saveSettings() {
+      const topic = document.getElementById('cfg-topic-prefix').value.trim();
+      const pin = document.getElementById('cfg-pin').value.trim();
+
+      if (topic) localStorage.setItem('spm_topic_prefix', topic);
+      if (pin && pin.length === 4) {
+        state.pin = pin;
+        localStorage.setItem('spm_pin', pin);
+      }
+
+      closeSettingsModal();
+      showToast('Settings saved & reconnecting');
+      connectTransport();
+    }
+
+    function showConfirmModal(title, desc, onConfirm) {
+      document.getElementById('confirm-title').textContent = title;
+      document.getElementById('confirm-desc').textContent = desc;
+      pendingConfirmAction = onConfirm;
+      document.getElementById('confirm-modal').classList.remove('hidden');
+    }
+
+    function closeConfirmModal(confirmed) {
+      document.getElementById('confirm-modal').classList.add('hidden');
+      if (confirmed && pendingConfirmAction) {
+        pendingConfirmAction();
+      }
+      pendingConfirmAction = null;
     }
 
     function showToast(msg) {
